@@ -1,0 +1,28 @@
+[user]
+	name = Guan Xuetao
+	email = gxt@mprc.pku.edu.cn
+[color]
+	diff = auto
+	status = auto
+	branch = auto
+	interactive = auto
+	ui = true
+	pager = true
+[color "diff"]
+	meta = yellow bold
+	frag = magenta bold
+	old = red bold
+	new = green bold
+[color "status"]
+	added = yellow
+	changed = green
+	untracked = cyan
+[core]
+	pager = less -FRSX
+[alias]
+	co = checkout
+	ci = commit -a
+	st = status
+	di = diff
+	sb = show-branch
+	ls = log --oneline
