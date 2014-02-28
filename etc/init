@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/bin/mount -t proc none /proc
+/bin/mount -t sysfs sysfs /sys
+
+/bin/sh

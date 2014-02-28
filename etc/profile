@@ -1,0 +1,4 @@
+alias ls='ls --color'
+mount /proc
+mount /sys
+ifconfig eth0 192.168.20.100
