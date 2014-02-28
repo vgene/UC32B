@@ -1,0 +1,12 @@
+CONFIG_STATIC=y
+CONFIG_CROSS_COMPILER_PREFIX="/pub/toolchain/uc64/bin/unicore64-linux-"
+
+# CONFIG_NANDWRITE is not set
+# CONFIG_NANDDUMP is not set
+
+# CONFIG_UBIATTACH is not set
+# CONFIG_UBIDETACH is not set
+# CONFIG_UBIMKVOL is not set
+# CONFIG_UBIRMVOL is not set
+# CONFIG_UBIRSVOL is not set
+# CONFIG_UBIUPDATEVOL is not set
