@@ -1,39 +1,36 @@
 DIR_UNICORE64	:= $(wildcard ~/UniCore64)
 DIR_WORKING	:= $(DIR_UNICORE64)/working
-DIR_RESULTS	:= $(DIR_UNICORE64)/results
-DIR_INITRD	:= $(DIR_WORKING)/initrd
+DIR_GNU_UC	:= /pub/toolchain/uc64/unicore64-linux/
 
 CROSS_UNICORE64	:= /pub/toolchain/uc64
 CROSS_LIB	:= $(CROSS_UNICORE64)/unicore64-linux/lib
 CROSS_COMPILE	:= $(CROSS_UNICORE64)/bin/unicore64-linux-
 OBJDUMP		:= $(CROSS_COMPILE)objdump
 
-TEST_SAMPLE	:= $(DIR_UNICORE64)/tests/app.c
+BUSYBOX_TARBALL	:= /pub/backup/busybox-1.21.1.tar.bz2
+BUSYBOX_CONFIG	:= $(DIR_UNICORE64)/initramfs/initramfs_busybox_config
+BUSYBOX_BUILDLOG:= $(DIR_WORKING)/busybox-build.log
 
 QEMU_GITREPO	:= /pub/git/qemu.git
 QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
-QEMU_TARGETS	:= x86_64-linux-user,x86_64-softmmu
+QEMU_TARGETS	:= unicore64-linux-user,unicore64-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
 
 LINUX_GITREPO	:= /pub/git/linux-unicore.git
 LINUX_ARCH	:= unicore64
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
-INITRD_BUSYBOX	:= /pub/backup/busybox-1.21.1.tar.bz2
-INITRD_BBCONFIG	:= $(DIR_UNICORE64)/initramfs/initramfs_busybox_config
-INITRD_BUILDLOG	:= $(DIR_WORKING)/initrd-build.log
-
-export PYTHONPATH = $(DIR_UNICORE64)/qxlib
-
 all:
 	@echo ""
 	@echo "Enjoy UniCore64!"
 	@echo ""
-	@echo "Step  0:"
+	@echo "Step  0: make highfive"
 	@echo "     or: make clean"
-	@echo "     or: make linux"
 	@echo "     or: make busybox"
-	@echo "     or: make qemu"
+	@echo "     or: make linux-new"
+	@echo "     or: make linux-make"
+	@echo "     or: make qemu-new"
+	@echo "     or: make qemu-make"
 	@echo ""
 	@echo "Step  2: running qemu and get trace"
 	@echo "    op1: make qemu-run  (file and local mode)"
@@ -41,24 +38,42 @@ all:
 
 highfive:
 	@make clean
-	@make linux
-	@make initrd
-	@make qxtrigger
-	@make qemu
+	@make busybox
+	@make linux-new
+	@make linux-make
+	@make qemu-new
+	@make qemu-make
 
 clean:
-	@rm -fr $(DIR_RESULTS)
 	@rm -fr $(DIR_WORKING)
 
-linux:
+busybox:
+	@echo "Remove old busybox ..."
+	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
+	@rm -fr $(DIR_WORKING)/busybox*
+	@cd $(DIR_WORKING);					\
+		tar xfj $(BUSYBOX_TARBALL);			\
+		ln -sf busybox-1.21.1 busybox
+	@echo "Configure and make busybox ..."
+	@cp $(BUSYBOX_CONFIG) $(DIR_WORKING)/busybox/.config
+	@yes "" | make -C $(DIR_WORKING)/busybox oldconfig	\
+		>> $(BUSYBOX_BUILDLOG) 2>&1
+	@make -C $(DIR_WORKING)/busybox -j4			\
+		>> $(BUSYBOX_BUILDLOG) 2>&1
+	@make -C $(DIR_WORKING)/busybox install			\
+		>> $(BUSYBOX_BUILDLOG) 2>&1
+
+linux-new:
 	@echo "Remove old linux repo ..."
 	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
 	@rm -fr $(DIR_WORKING)/linux
 	@echo "Clone and checkout unicore64 branch"
 	@cd $(DIR_WORKING);					\
 		git clone $(LINUX_GITREPO) -- linux
-	@cd $(DIR_WORKING)/linux;					\
+	@cd $(DIR_WORKING)/linux;				\
 		git checkout -b unicore64 origin/unicore64
+
+linux-make:
 	@echo "Make defconfig ..."
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
 		defconfig >> $(LINUX_BUILDLOG) 2>&1
@@ -72,43 +87,25 @@ linux:
 	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
 		> $(DIR_WORKING)/vmlinux.disasm
 
-busybox:
-	@echo "Remove old busybox ..."
-	@rm -fr $(DIR_WORKING)/busybox-*
-	@cd $(DIR_WORKING); tar xfj $(INITRD_BUSYBOX); ln -sf busybox-1.21.1 busybox
-	@echo "Configure and make busybox ..."
-	@cp $(INITRD_BBCONFIG) $(DIR_WORKING)/busybox/.config
-	@yes "" | make -C $(DIR_WORKING)/busybox oldconfig	\
-		>> $(INITRD_BUILDLOG) 2>&1
-	@make -C $(DIR_WORKING)/busybox -j4			\
-		>> $(INITRD_BUILDLOG) 2>&1
-	@make -C $(DIR_WORKING)/busybox install			\
-		>> $(INITRD_BUILDLOG) 2>&1
-
-test-sample:
-	@test -d $(DIR_INITRD) || mkdir -p $(DIR_INITRD)
-	@echo "Compile test app, and generate disasm and symtab files ..."
-	@gcc -o $(DIR_INITRD)/app $(TEST_SAMPLE)
-	@objdump -D $(DIR_INITRD)/app > $(DIR_WORKING)/app.disasm
-	@objdump -t $(DIR_INITRD)/app > $(DIR_WORKING)/app.symtab
-
-qemu:
-	@test -d $(DIR_WORKING)/qemu-x86_64 ||			\
-		mkdir -p $(DIR_WORKING)/qemu-x86_64
+qemu-new:
+	@test -d $(DIR_WORKING)/qemu-unicore64 ||		\
+		mkdir -p $(DIR_WORKING)/qemu-unicore64
 	@echo "Remove old qemu repo ..."
 	@rm -fr $(DIR_WORKING)/qemu
 	@cd $(DIR_WORKING); git clone $(QEMU_GITREPO)
 	@cd $(DIR_WORKING)/qemu;				\
-		git br qxtree v1.7.0;				\
-		git co qxtree;					\
-		git am $(DIR_UNICORE64)/patches-qemu/*
+		git br unicore64 origin/unicore64;		\
+		git co unicore64
+
+qemu-make:
 	@echo "Configure qemu ..."
 	@cd $(DIR_WORKING)/qemu; ./configure			\
 		--enable-trace-backend=stderr			\
 		--target-list=$(QEMU_TARGETS)			\
 		--enable-debug			 		\
 		--disable-sdl			 		\
-		--prefix=$(DIR_WORKING)/qemu-x86_64		\
+		--interp-prefix=$(DIR_GNU_UC)			\
+		--prefix=$(DIR_WORKING)/qemu-unicore64		\
 		>> $(QEMU_BUILDLOG) 2>&1
 	@echo "Make qemu and make install ..."
 	@make -C $(DIR_WORKING)/qemu -j4 >> $(QEMU_BUILDLOG) 2>&1
