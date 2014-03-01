@@ -20,7 +20,7 @@ LINUX_ARCH	:= unicore64
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
 INITRD_BUSYBOX	:= /pub/backup/busybox-1.21.1.tar.bz2
-INITRD_BB_CONFIG:= $(DIR_UNICORE64)/initramfs/initramfs_busybox_config
+INITRD_BBCONFIG	:= $(DIR_UNICORE64)/initramfs/initramfs_busybox_config
 INITRD_BUILDLOG	:= $(DIR_WORKING)/initrd-build.log
 INITRD_CPIO	:= $(DIR_WORKING)/qr.cpio
 
@@ -76,14 +76,14 @@ linux:
 initrd-bb:
 	@echo "Remove old busybox ..."
 	@rm -fr $(DIR_WORKING)/busybox-*
-	@cd $(DIR_WORKING); tar xfj $(INITRD_BUSYBOX)
+	@cd $(DIR_WORKING); tar xfj $(INITRD_BUSYBOX); ln -sf busybox-1.21.1 busybox
 	@echo "Configure and make busybox ..."
-	@cp $(INITRD_BB_CONFIG) $(DIR_WORKING)/busybox-1.21.1/.config
-	@yes "" | make -C $(DIR_WORKING)/busybox-1.21.1 oldconfig	\
+	@cp $(INITRD_BBCONFIG) $(DIR_WORKING)/busybox/.config
+	@yes "" | make -C $(DIR_WORKING)/busybox oldconfig	\
 		>> $(INITRD_BUILDLOG) 2>&1
-	@make -C $(DIR_WORKING)/busybox-1.21.1 -j4			\
+	@make -C $(DIR_WORKING)/busybox -j4			\
 		>> $(INITRD_BUILDLOG) 2>&1
-	@make -C $(DIR_WORKING)/busybox-1.21.1 install			\
+	@make -C $(DIR_WORKING)/busybox install			\
 		>> $(INITRD_BUILDLOG) 2>&1
 
 initrd-lib:
