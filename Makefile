@@ -115,12 +115,12 @@ qemu-run:
 	@echo "Remove old log file"
 	@rm -fr $(QEMU_TRACELOG)
 	@echo "Running QEMU in this tty ..."
-	@$(DIR_WORKING)/qemu-x86_64/bin/qemu-system-x86_64	\
-		-nographic				        \
-		-m 512					        \
+	@$(DIR_WORKING)/qemu-unicore64/bin/qemu-system-unicore64\
+		-curses						\
+		-M puv4						\
+		-m 512						\
 		-icount 0					\
-		-kernel $(DIR_WORKING)/bzImage			\
-		-initrd $(INITRD_CPIO)				\
-		-append "console=ttyS0 root=/dev/ram"		\
+		-kernel $(DIR_WORKING)/zImage			\
+		-append "root=/dev/ram"				\
 		2> $(QEMU_TRACELOG)
 
