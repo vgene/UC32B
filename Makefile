@@ -20,7 +20,7 @@ LINUX_ARCH	:= unicore64
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
 INITRD_BUSYBOX	:= /pub/backup/busybox-1.21.1.tar.bz2
-INITRD_BB_CONFIG:= $(DIR_UNICORE64)/initrd_bb_config
+INITRD_BB_CONFIG:= $(DIR_UNICORE64)/initramfs/initramfs_bubybox_config
 INITRD_BUILDLOG	:= $(DIR_WORKING)/initrd-build.log
 INITRD_CPIO	:= $(DIR_WORKING)/qr.cpio
 
