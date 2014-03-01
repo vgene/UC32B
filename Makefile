@@ -79,12 +79,11 @@ initrd-bb:
 	@cd $(DIR_WORKING); tar xfj $(INITRD_BUSYBOX)
 	@echo "Configure and make busybox ..."
 	@cp $(INITRD_BB_CONFIG) $(DIR_WORKING)/busybox-1.21.1/.config
-	@yes "" | make -C $(DIR_WORKING)/busybox-1.21.1		\
-		oldconfig >> $(INITRD_BUILDLOG) 2>&1
-	@make -C $(DIR_WORKING)/busybox-1.21.1 -j4		\
+	@yes "" | make -C $(DIR_WORKING)/busybox-1.21.1 oldconfig	\
 		>> $(INITRD_BUILDLOG) 2>&1
-	@make -C $(DIR_WORKING)/busybox-1.21.1			\
-		CONFIG_PREFIX=$(DIR_INITRD) install		\
+	@make -C $(DIR_WORKING)/busybox-1.21.1 -j4			\
+		>> $(INITRD_BUILDLOG) 2>&1
+	@make -C $(DIR_WORKING)/busybox-1.21.1 install			\
 		>> $(INITRD_BUILDLOG) 2>&1
 
 initrd-lib:
