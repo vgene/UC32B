@@ -22,7 +22,6 @@ LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 INITRD_BUSYBOX	:= /pub/backup/busybox-1.21.1.tar.bz2
 INITRD_BBCONFIG	:= $(DIR_UNICORE64)/initramfs/initramfs_busybox_config
 INITRD_BUILDLOG	:= $(DIR_WORKING)/initrd-build.log
-INITRD_CPIO	:= $(DIR_WORKING)/qr.cpio
 
 export PYTHONPATH = $(DIR_UNICORE64)/qxlib
 
@@ -33,7 +32,7 @@ all:
 	@echo "Step  0:"
 	@echo "     or: make clean"
 	@echo "     or: make linux"
-	@echo "     or: make initrd"
+	@echo "     or: make busybox"
 	@echo "     or: make qemu"
 	@echo ""
 	@echo "Step  2: running qemu and get trace"
@@ -73,7 +72,7 @@ linux:
 	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
 		> $(DIR_WORKING)/vmlinux.disasm
 
-initrd-bb:
+busybox:
 	@echo "Remove old busybox ..."
 	@rm -fr $(DIR_WORKING)/busybox-*
 	@cd $(DIR_WORKING); tar xfj $(INITRD_BUSYBOX); ln -sf busybox-1.21.1 busybox
@@ -86,56 +85,12 @@ initrd-bb:
 	@make -C $(DIR_WORKING)/busybox install			\
 		>> $(INITRD_BUILDLOG) 2>&1
 
-initrd-lib:
-	@echo "Remove old libraries ..."
-	@rm -fr $(DIR_INITRD)/lib; mkdir $(DIR_INITRD)/lib
-	@echo "Copying necessary libraries (ld, libc, libm) ..."
-	@cp -a $(CROSS_LIB)/ld-*     $(DIR_INITRD)/lib
-	@cp -a $(CROSS_LIB)/libc-*   $(DIR_INITRD)/lib
-	@cp -a $(CROSS_LIB)/libc.so* $(DIR_INITRD)/lib
-	@cp -a $(CROSS_LIB)/libm-*   $(DIR_INITRD)/lib
-	@cp -a $(CROSS_LIB)/libm.so* $(DIR_INITRD)/lib
-	@echo "Generate disasm and elf file for libraries"
-	@objdump -D $(DIR_INITRD)/lib/ld-2.9.so \
-		> $(DIR_WORKING)/ld.disasm
-	@readelf -a $(DIR_INITRD)/lib/ld-2.9.so \
-		> $(DIR_WORKING)/ld.elf
-	@objdump -D $(DIR_INITRD)/lib/libc-2.9.so \
-		> $(DIR_WORKING)/libc.disasm
-	@readelf -a $(DIR_INITRD)/lib/libc-2.9.so \
-		> $(DIR_WORKING)/libc.elf
-	@objdump -D $(DIR_INITRD)/lib/libm-2.9.so \
-		> $(DIR_WORKING)/libm.disasm
-	@readelf -a $(DIR_INITRD)/lib/libm-2.9.so \
-		> $(DIR_WORKING)/libm.elf
-
-initrd:
-	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
-	@make initrd-bb
-	@make initrd-lib
-	@echo "Copying necessary config and script files ..."
-	@cp -a --parents -t $(DIR_INITRD) etc/*
-	@cp -a $(DIR_UNICORE64)/etc/init $(DIR_INITRD)/init
-
-qxtrigger:
-	@test -d $(DIR_INITRD) || mkdir -p $(DIR_INITRD)
-	@echo "Compile qxtrigger, and generate disasm and symtab files ..."
-	@gcc -o $(DIR_INITRD)/qxtrigger $(DIR_UNICORE64)/src/qxtrigger.c
-	@objdump -D $(DIR_INITRD)/qxtrigger > $(DIR_WORKING)/qxtrigger.disasm
-	@objdump -t $(DIR_INITRD)/qxtrigger > $(DIR_WORKING)/qxtrigger.symtab
-
 test-sample:
 	@test -d $(DIR_INITRD) || mkdir -p $(DIR_INITRD)
 	@echo "Compile test app, and generate disasm and symtab files ..."
 	@gcc -o $(DIR_INITRD)/app $(TEST_SAMPLE)
 	@objdump -D $(DIR_INITRD)/app > $(DIR_WORKING)/app.disasm
 	@objdump -t $(DIR_INITRD)/app > $(DIR_WORKING)/app.symtab
-
-initrd-gen:
-	@echo "Generating cpio from $(DIR_INITRD) ..."
-	@cd $(DIR_INITRD);					\
-		find . -print0 | cpio --null -ov --format=newc	\
-		> $(INITRD_CPIO) 2>> $(INITRD_BUILDLOG)
 
 qemu:
 	@test -d $(DIR_WORKING)/qemu-x86_64 ||			\
