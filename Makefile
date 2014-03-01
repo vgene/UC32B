@@ -74,6 +74,9 @@ linux-new:
 		git checkout -b unicore64 origin/unicore64
 
 linux-make:
+	@echo "Make mrproper ..."
+	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
+		mrproper >> $(LINUX_BUILDLOG) 2>&1
 	@echo "Make defconfig ..."
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
 		defconfig >> $(LINUX_BUILDLOG) 2>&1
@@ -108,6 +111,7 @@ qemu-make:
 		--prefix=$(DIR_WORKING)/qemu-unicore64		\
 		>> $(QEMU_BUILDLOG) 2>&1
 	@echo "Make qemu and make install ..."
+	@make -C $(DIR_WORKING)/qemu diskclean >> $(QEMU_BUILDLOG) 2>&1
 	@make -C $(DIR_WORKING)/qemu -j4 >> $(QEMU_BUILDLOG) 2>&1
 	@make -C $(DIR_WORKING)/qemu install >> $(QEMU_BUILDLOG) 2>&1
 
