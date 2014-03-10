@@ -20,11 +20,19 @@ LINUX_GITREPO	:= /pub/git/linux-unicore.git
 LINUX_ARCH	:= unicore64
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
+ifndef SMP
+	LINUX_DEFCONFIG := unicore64_defconfig
+	QEMU_SMP	:= 1
+else
+	LINUX_DEFCONFIG := unicore64_smp_defconfig
+	QEMU_SMP	:= 2
+endif
+
 all:
 	@echo ""
 	@echo "Enjoy UniCore64!"
 	@echo ""
-	@echo "Step  0: make highfive"
+	@echo "For ONE core: make highfive"
 	@echo "     or: make clean"
 	@echo "     or: make busybox"
 	@echo "     or: make linux-new"
@@ -32,8 +40,17 @@ all:
 	@echo "     or: make qemu-new"
 	@echo "     or: make qemu-make"
 	@echo ""
-	@echo "Step  2: running qemu and get trace"
-	@echo "    op1: make qemu-run  (file and local mode)"
+	@echo "For SMP: SMP=y make highfive"
+	@echo "     or: make clean"
+	@echo "     or: make busybox"
+	@echo "     or: make linux-new"
+	@echo "     or: SMP=y make linux-make"
+	@echo "     or: make qemu-new"
+	@echo "     or: make qemu-make"
+	@echo ""
+	@echo "Running qemu and get trace"
+	@echo "     make qemu-run  (file and local mode)"
+	@echo "     or: SMP=y make qemu-run  (file and local mode)"
 	@echo ""
 
 highfive:
@@ -77,9 +94,9 @@ linux-make:
 	@echo "Make mrproper ..."
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
 		mrproper >> $(LINUX_BUILDLOG) 2>&1
-	@echo "Make defconfig ..."
+	@echo "Make $(LINUX_DEFCONFIG) ..."
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
-		defconfig >> $(LINUX_BUILDLOG) 2>&1
+		$(LINUX_DEFCONFIG) >> $(LINUX_BUILDLOG) 2>&1
 	@echo "Making (in several minutes) ..."
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH) -j4	\
 		>> $(LINUX_BUILDLOG) 2>&1
@@ -122,6 +139,7 @@ qemu-run:
 		-curses						\
 		-M puv4						\
 		-m 512						\
+		-smp $(QEMU_SMP)				\
 		-icount 0					\
 		-kernel $(DIR_WORKING)/zImage			\
 		-append "root=/dev/ram"				\
