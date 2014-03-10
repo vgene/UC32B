@@ -1,0 +1,146 @@
+dir /dev 		755 0 0
+dir /dev/input		755 0 0
+dir /proc 		755 0 0
+dir /bin 		755 0 0
+dir /sbin 		755 0 0
+dir /lib 		755 0 0
+dir /etc 		755 0 0
+dir /tmp 		755 0 0
+dir /usr 		755 0 0
+dir /opt 		755 0 0
+
+nod /dev/console 	644 0 0 c 5 1
+nod /dev/zero 		666 0 0 c 1 5
+nod /dev/null 		666 0 0 c 1 3
+nod /dev/loop0 		644 0 0 b 7 0
+nod /dev/ttyAM0 	644 0 0 c 204 16
+nod /dev/ttyAM1 	644 0 0 c 204 17
+nod /dev/fb0	 	644 0 0 c 29 0
+nod /dev/input/mice	644 0 0 c 13 63
+nod /dev/tty1	 	644 0 0 c 5 1
+nod /dev/tty2	 	644 0 0 c 5 2
+nod /dev/tty3	 	644 0 0 c 5 3
+nod /dev/tty4	 	644 0 0 c 5 4
+nod /dev/tty5	 	644 0 0 c 5 5
+nod /dev/tty6	 	644 0 0 c 5 6
+nod /dev/mem		666 0 0 c 1 1
+
+slink /dev/fb		/dev/fb0 777 0 0
+
+file /etc/fstab		etc/fstab	755 0 0
+file /etc/inittab	etc/inittab	755 0 0
+file /etc/passwd	etc/passwd	755 0 0
+#file /etc/sysinit	etc/sysinit	755 0 0
+
+file /bin/busybox	working/busybox-1.21.1/_install/bin/busybox 755 0 0
+
+slink /linuxrc		/bin/busybox 777 0 0
+slink /init		/bin/busybox 777 0 0
+
+slink /bin/[		busybox 777 0 0
+slink /bin/ash		busybox 777 0 0
+slink /bin/awk		busybox 777 0 0
+slink /bin/basename	busybox 777 0 0
+slink /bin/cat		busybox 777 0 0
+slink /bin/chgrp	busybox 777 0 0
+slink /bin/chmod	busybox 777 0 0
+slink /bin/chown	busybox 777 0 0
+slink /bin/chvt		busybox 777 0 0
+slink /bin/clear	busybox 777 0 0
+slink /bin/cmp		busybox 777 0 0
+slink /bin/cp		busybox 777 0 0
+slink /bin/cut		busybox 777 0 0
+slink /bin/date		busybox 777 0 0
+slink /bin/dd		busybox 777 0 0
+slink /bin/deallocvt	busybox 777 0 0
+slink /bin/df		busybox 777 0 0
+slink /bin/dirname	busybox 777 0 0
+slink /bin/dmesg	busybox 777 0 0
+slink /bin/du		busybox 777 0 0
+slink /bin/echo		busybox 777 0 0
+slink /bin/egrep	busybox 777 0 0
+slink /bin/env		busybox 777 0 0
+slink /bin/expr		busybox 777 0 0
+slink /bin/false	busybox 777 0 0
+slink /bin/fgrep	busybox 777 0 0
+slink /bin/find		busybox 777 0 0
+slink /bin/free		busybox 777 0 0
+slink /bin/grep		busybox 777 0 0
+slink /bin/gunzip	busybox 777 0 0
+slink /bin/gzip		busybox 777 0 0
+slink /bin/head		busybox 777 0 0
+slink /bin/hexdump	busybox 777 0 0
+slink /bin/hostname	busybox 777 0 0
+slink /bin/id		busybox 777 0 0
+slink /bin/install	busybox 777 0 0
+slink /bin/kill		busybox 777 0 0
+slink /bin/killall	busybox 777 0 0
+slink /bin/ln		busybox 777 0 0
+slink /bin/logger	busybox 777 0 0
+slink /bin/ls		busybox 777 0 0
+slink /bin/mkdir	busybox 777 0 0
+slink /bin/mknod	busybox 777 0 0
+slink /bin/mktemp	busybox 777 0 0
+slink /bin/more		busybox 777 0 0
+slink /bin/mount	busybox 777 0 0
+slink /bin/mv		busybox 777 0 0
+slink /bin/openvt	busybox 777 0 0
+slink /bin/pidof	busybox 777 0 0
+slink /bin/ping		busybox 777 0 0
+slink /bin/ps		busybox 777 0 0
+slink /bin/pwd		busybox 777 0 0
+slink /bin/readlink	busybox 777 0 0
+slink /bin/reset	busybox 777 0 0
+slink /bin/rm		busybox 777 0 0
+slink /bin/rmdir	busybox 777 0 0
+slink /bin/sed		busybox 777 0 0
+slink /bin/sh		busybox 777 0 0
+slink /bin/sleep	busybox 777 0 0
+slink /bin/sort		busybox 777 0 0
+slink /bin/strings	busybox 777 0 0
+slink /bin/sync		busybox 777 0 0
+slink /bin/tail		busybox 777 0 0
+slink /bin/tar		busybox 777 0 0
+slink /bin/tee		busybox 777 0 0
+slink /bin/test		busybox 777 0 0
+slink /bin/time		busybox 777 0 0
+slink /bin/top		busybox 777 0 0
+slink /bin/touch	busybox 777 0 0
+slink /bin/tr		busybox 777 0 0
+slink /bin/true		busybox 777 0 0
+slink /bin/tty		busybox 777 0 0
+slink /bin/umount	busybox 777 0 0	
+slink /bin/uname	busybox 777 0 0
+slink /bin/uniq		busybox 777 0 0
+slink /bin/uptime	busybox 777 0 0
+slink /bin/usleep	busybox 777 0 0	
+slink /bin/vi		busybox 777 0 0
+slink /bin/wc		busybox 777 0 0
+slink /bin/wget		busybox 777 0 0
+slink /bin/which	busybox 777 0 0
+slink /bin/whoami	busybox 777 0 0
+slink /bin/xargs	busybox 777 0 0
+slink /bin/yes		busybox 777 0 0
+slink /bin/zcat		busybox 777 0 0
+		
+slink /sbin/chroot	/bin/busybox 777 0 0
+slink /sbin/fdisk	/bin/busybox 777 0 0
+slink /sbin/fsk.minix	/bin/busybox 777 0 0
+slink /sbin/halt	/bin/busybox 777 0 0
+slink /sbin/ifconfig	/bin/busybox 777 0 0	
+slink /sbin/init	/bin/busybox 777 0 0
+slink /sbin/insmod	/bin/busybox 777 0 0
+slink /sbin/klogd	/bin/busybox 777 0 0
+slink /sbin/logread	/bin/busybox 777 0 0
+slink /sbin/lsmod	/bin/busybox 777 0 0
+slink /sbin/mkfs.minix	/bin/busybox 777 0 0
+slink /sbin/modprobe	/bin/busybox 777 0 0
+slink /sbin/pivot_root	/bin/busybox 777 0 0
+slink /sbin/poweroff	/bin/busybox 777 0 0
+slink /sbin/reboot	/bin/busybox 777 0 0
+slink /sbin/rmmod	/bin/busybox 777 0 0
+slink /sbin/route	/bin/busybox 777 0 0
+slink /sbin/swapoff	/bin/busybox 777 0 0
+slink /sbin/swapon	/bin/busybox 777 0 0
+slink /sbin/syslogd	/bin/busybox 777 0 0
+slink /sbin/udhcpc	/bin/busybox 777 0 0
