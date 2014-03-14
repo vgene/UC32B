@@ -20,6 +20,8 @@ LINUX_GITREPO	:= /pub/git/linux-unicore.git
 LINUX_ARCH	:= unicore64
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
+PATH		:= $(CROSS_UNICORE64)/bin:$(PATH)
+
 ifndef SMP
 	LINUX_DEFCONFIG := unicore64_defconfig
 	QEMU_SMP	:= 1
