@@ -1,5 +1,5 @@
 CONFIG_STATIC=y
-CONFIG_CROSS_COMPILER_PREFIX="/pub/toolchain/uc64/bin/unicore64-linux-"
+CONFIG_CROSS_COMPILER_PREFIX="/pub/toolchain/uc32/bin/unicore32-linux-"
 
 # CONFIG_NANDWRITE is not set
 # CONFIG_NANDDUMP is not set

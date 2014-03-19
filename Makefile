@@ -1,52 +1,38 @@
-DIR_UNICORE64	:= $(wildcard ~/UniCore64)
-DIR_WORKING	:= $(DIR_UNICORE64)/working
-DIR_GNU_UC	:= /pub/toolchain/uc64/unicore64-linux/
+DIR_UNICORE32	:= $(wildcard ~/UniCore32)
+DIR_WORKING	:= $(DIR_UNICORE32)/working
+DIR_GNU_UC	:= /pub/toolchain/uc32/unicore32-linux/
 
-CROSS_UNICORE64	:= /pub/toolchain/uc64
-CROSS_LIB	:= $(CROSS_UNICORE64)/unicore64-linux/lib
-CROSS_COMPILE	:= $(CROSS_UNICORE64)/bin/unicore64-linux-
+CROSS_UNICORE32	:= /pub/toolchain/uc32
+CROSS_LIB	:= $(CROSS_UNICORE32)/unicore32-linux/lib
+CROSS_COMPILE	:= $(CROSS_UNICORE32)/bin/unicore32-linux-
 OBJDUMP		:= $(CROSS_COMPILE)objdump
 
 BUSYBOX_TARBALL	:= /pub/backup/busybox-1.21.1.tar.bz2
-BUSYBOX_CONFIG	:= $(DIR_UNICORE64)/initramfs/initramfs_busybox_config
+BUSYBOX_CONFIG	:= $(DIR_UNICORE32)/initramfs/initramfs_busybox_config
 BUSYBOX_BUILDLOG:= $(DIR_WORKING)/busybox-build.log
 
 QEMU_GITREPO	:= /pub/git/qemu.git
 QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
-QEMU_TARGETS	:= unicore64-linux-user,unicore64-softmmu
+QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
 
 LINUX_GITREPO	:= /pub/git/linux-unicore.git
-LINUX_ARCH	:= unicore64
+LINUX_ARCH	:= unicore32
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
-PATH		:= $(CROSS_UNICORE64)/bin:$(PATH)
+PATH		:= $(CROSS_UNICORE32)/bin:$(PATH)
 
-ifndef SMP
-	LINUX_DEFCONFIG := unicore64_defconfig
-	QEMU_SMP	:= 1
-else
-	LINUX_DEFCONFIG := unicore64_smp_defconfig
-	QEMU_SMP	:= 2
-endif
+LINUX_DEFCONFIG := unicore32_defconfig
 
 all:
 	@echo ""
-	@echo "Enjoy UniCore64!"
+	@echo "Enjoy UniCore32!"
 	@echo ""
 	@echo "For ONE core: make highfive"
 	@echo "     or: make clean"
 	@echo "     or: make busybox"
 	@echo "     or: make linux-new"
 	@echo "     or: make linux-make"
-	@echo "     or: make qemu-new"
-	@echo "     or: make qemu-make"
-	@echo ""
-	@echo "For SMP: SMP=y make highfive"
-	@echo "     or: make clean"
-	@echo "     or: make busybox"
-	@echo "     or: make linux-new"
-	@echo "     or: SMP=y make linux-make"
 	@echo "     or: make qemu-new"
 	@echo "     or: make qemu-make"
 	@echo ""
@@ -86,11 +72,11 @@ linux-new:
 	@echo "Remove old linux repo ..."
 	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
 	@rm -fr $(DIR_WORKING)/linux
-	@echo "Clone and checkout unicore64 branch"
+	@echo "Clone and checkout unicore32 branch"
 	@cd $(DIR_WORKING);					\
 		git clone $(LINUX_GITREPO) -- linux
 	@cd $(DIR_WORKING)/linux;				\
-		git checkout -b unicore64 origin/unicore64
+		git checkout -b unicore32 origin/unicore32
 
 linux-make:
 	@echo "Make mrproper ..."
@@ -103,21 +89,21 @@ linux-make:
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH) -j4	\
 		>> $(LINUX_BUILDLOG) 2>&1
 	@echo "Softlinking necessary files ..."
-	@ln -sf $(DIR_WORKING)/linux/arch/unicore64/boot/zImage $(DIR_WORKING)
+	@ln -sf $(DIR_WORKING)/linux/arch/unicore32/boot/zImage $(DIR_WORKING)
 	@ln -sf $(DIR_WORKING)/linux/System.map $(DIR_WORKING)
 	@echo "Generating disassembly file for vmlinux ..."
 	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
 		> $(DIR_WORKING)/vmlinux.disasm
 
 qemu-new:
-	@test -d $(DIR_WORKING)/qemu-unicore64 ||		\
-		mkdir -p $(DIR_WORKING)/qemu-unicore64
+	@test -d $(DIR_WORKING)/qemu-unicore32 ||		\
+		mkdir -p $(DIR_WORKING)/qemu-unicore32
 	@echo "Remove old qemu repo ..."
 	@rm -fr $(DIR_WORKING)/qemu
 	@cd $(DIR_WORKING); git clone $(QEMU_GITREPO)
 	@cd $(DIR_WORKING)/qemu;				\
-		git br unicore64 origin/unicore64;		\
-		git co unicore64
+		git br unicore32 origin/unicore32;		\
+		git co unicore32
 
 qemu-make:
 	@echo "Configure qemu ..."
@@ -127,7 +113,7 @@ qemu-make:
 		--enable-debug			 		\
 		--disable-sdl			 		\
 		--interp-prefix=$(DIR_GNU_UC)			\
-		--prefix=$(DIR_WORKING)/qemu-unicore64		\
+		--prefix=$(DIR_WORKING)/qemu-unicore32		\
 		>> $(QEMU_BUILDLOG) 2>&1
 	@echo "Make qemu and make install ..."
 	@make -C $(DIR_WORKING)/qemu -j4 >> $(QEMU_BUILDLOG) 2>&1
@@ -137,11 +123,10 @@ qemu-run:
 	@echo "Remove old log file"
 	@rm -fr $(QEMU_TRACELOG)
 	@echo "Running QEMU in this tty ..."
-	@$(DIR_WORKING)/qemu-unicore64/bin/qemu-system-unicore64\
+	@$(DIR_WORKING)/qemu-unicore32/bin/qemu-system-unicore32\
 		-curses						\
-		-M puv4						\
+		-M puv3						\
 		-m 512						\
-		-smp $(QEMU_SMP)				\
 		-icount 0					\
 		-kernel $(DIR_WORKING)/zImage			\
 		-append "root=/dev/ram"				\
