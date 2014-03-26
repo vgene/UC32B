@@ -7,7 +7,7 @@ CROSS_LIB	:= $(CROSS_UNICORE32)/unicore32-linux/lib
 CROSS_COMPILE	:= $(CROSS_UNICORE32)/bin/unicore32-linux-
 OBJDUMP		:= $(CROSS_COMPILE)objdump
 
-BUSYBOX_TARBALL	:= /pub/backup/busybox-1.21.1.tar.bz2
+BUSYBOX_TARBALL	:= /pub/backup/busybox-1.20.0.tar.bz2
 BUSYBOX_CONFIG	:= $(DIR_UNICORE32)/initramfs/initramfs_busybox_config
 BUSYBOX_BUILDLOG:= $(DIR_WORKING)/busybox-build.log
 
@@ -22,7 +22,7 @@ LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
 PATH		:= $(CROSS_UNICORE32)/bin:$(PATH)
 
-LINUX_DEFCONFIG := unicore32_defconfig
+LINUX_DEFCONFIG := qemu_defconfig
 
 all:
 	@echo ""
@@ -58,7 +58,7 @@ busybox:
 	@rm -fr $(DIR_WORKING)/busybox*
 	@cd $(DIR_WORKING);					\
 		tar xfj $(BUSYBOX_TARBALL);			\
-		ln -sf busybox-1.21.1 busybox
+		ln -sf busybox-1.20.0 busybox
 	@echo "Configure and make busybox ..."
 	@cp $(BUSYBOX_CONFIG) $(DIR_WORKING)/busybox/.config
 	@yes "" | make -C $(DIR_WORKING)/busybox oldconfig	\
@@ -76,7 +76,7 @@ linux-new:
 	@cd $(DIR_WORKING);					\
 		git clone $(LINUX_GITREPO) -- linux
 	@cd $(DIR_WORKING)/linux;				\
-		git checkout -b unicore32 origin/unicore32
+		git checkout -b unicore32-working origin/unicore32-working
 
 linux-make:
 	@echo "Make mrproper ..."
