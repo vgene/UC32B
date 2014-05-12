@@ -129,6 +129,8 @@ qemu-run:
 		-m 512						\
 		-icount 0					\
 		-kernel $(DIR_WORKING)/zImage			\
-		-append "root=/dev/ram"				\
+		-net nic					\
+		-net tap,ifname=tap_$(USER),script=no,downscript=no	\
+		-append "root=/dev/nfs nfsroot=192.168.200.161:/export/guestroot/,tcp rw ip=192.168.122.4"    \
 		2> $(QEMU_TRACELOG)
 
