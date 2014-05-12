@@ -32,7 +32,7 @@ file /etc/inittab	etc/inittab	755 0 0
 file /etc/passwd	etc/passwd	755 0 0
 #file /etc/sysinit	etc/sysinit	755 0 0
 
-file /bin/busybox	working/busybox-1.21.1/_install/bin/busybox 755 0 0
+file /bin/busybox	working/busybox-1.20.0/_install/bin/busybox 755 0 0
 
 slink /linuxrc		/bin/busybox 777 0 0
 slink /init		/bin/busybox 777 0 0
