@@ -16,7 +16,8 @@ QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
 QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
 
-LINUX_GITREPO	:= /pub/git/linux-unicore.git
+LINUX_LOCALREPO	:= /pub/git/linux.git
+LINUX_REMOTEREPO:= $(USER)@192.168.200.31:/pub/git/linux.git
 LINUX_ARCH	:= unicore32
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
@@ -72,11 +73,18 @@ linux-new:
 	@echo "Remove old linux repo ..."
 	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
 	@rm -fr $(DIR_WORKING)/linux
-	@echo "Clone and checkout unicore32 branch"
-	@cd $(DIR_WORKING);					\
-		git clone $(LINUX_GITREPO) -- linux
-	@cd $(DIR_WORKING)/linux;				\
-		git checkout -b unicore32-working origin/unicore32-working
+	@echo "Clone local repo"
+	@cd $(DIR_WORKING);						\
+		git clone $(LINUX_LOCALREPO) -- linux
+	@echo "Add and update remote repo (passwd needed) ..."
+	@cd $(DIR_WORKING)/linux;					\
+		git remote add repo31 $(LINUX_REMOTEREPO);		\
+		git remote update repo31
+	@echo "Git branch and checkout unicore32 patches"
+	@cd $(DIR_WORKING)/linux;					\
+		git branch unicore32 repo31/unicore32;			\
+		git branch unicore32-working repo31/unicore32-working;	\
+		git checkout unicore32-working
 
 linux-make:
 	@echo "Make mrproper ..."
