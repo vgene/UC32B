@@ -23,7 +23,7 @@ LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
 PATH		:= $(CROSS_UNICORE32)/bin:$(PATH)
 
-LINUX_DEFCONFIG := qemu_defconfig
+LINUX_DEFCONFIG := unicore32_defconfig
 
 all:
 	@echo ""
