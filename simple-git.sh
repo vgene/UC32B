@@ -9,9 +9,9 @@ usage()
     echo "Usage: (If any error or advice, please contact Guan Xuetao)"
     echo
     echo "  for git commands:"
-    echo "      mygit.sh [qemu-format-patch | linux-format-patch] master..unicore32"
-    echo "      mygit.sh [qemu-request-pull | linux-request-pull]"
-    echo "      mygit.sh [qemu-send-email | linux-send-email] filename or m..u"
+    echo "      simple-git.sh [qemu-format-patch | linux-format-patch] master..unicore32"
+    echo "      simple-git.sh [qemu-request-pull | linux-request-pull]"
+    echo "      simple-git.sh [qemu-send-email | linux-send-email] filename or m..u"
     echo
 }
 
