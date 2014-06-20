@@ -41,6 +41,10 @@ all:
 	@echo "     make qemu-run  (file and local mode)"
 	@echo "     or: SMP=y make qemu-run  (file and local mode)"
 	@echo ""
+	@echo "To see mygit rules:"
+	@echo "     make mygit-help"
+
+include Makefile.mygit
 
 highfive:
 	@make clean
