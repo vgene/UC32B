@@ -21,9 +21,9 @@ linux-request-pull-1:
 	git tag -f -u gxt@mprc.pku.edu.cn			\
 		-m "UniCore32 bug fixes for 3.16-rc1"		\
 		for-linus unicore32;				\
-	echo "Push commits and tags to $(LINUX_REMOTEREPO)";	\
-	git push -f --all $(LINUX_REMOTEREPO);			\
-	git push -f --tags $(LINUX_REMOTEREPO);			\
+	echo "Push commits and tags to $(LINUX_REPO31)";	\
+	git push -f --all $(LINUX_REPO31);			\
+	git push -f --tags $(LINUX_REPO31);			\
 	echo "Push commits and tags to github";			\
 	git push -f --all github;				\
 	git push -f --tags github
