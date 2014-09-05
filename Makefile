@@ -19,7 +19,7 @@ QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
 LINUX_LOCALREPO	:= /pub/git/linux.git
 LINUX_REPO31	:= $(USER)@192.168.200.31:/pub/git/linux.git
 LINUX_REPOGITHUB:= git@github.com:gxt/linux.git
-LINUX_REPOLINUX	:= https://github.com/torvalds/linux.git
+LINUX_REPOLINUS	:= https://github.com/torvalds/linux.git
 LINUX_ARCH	:= unicore32
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
