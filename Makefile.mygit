@@ -17,15 +17,14 @@ linux-format-patch:
 #		--subject-prefix=PATCH$PATCHVER			\
 
 linux-send-email:
-	@cd working/linux;					\
-	git send-email --from=gxt@mprc.pku.edu.cn		\
+	@git send-email --from=gxt@mprc.pku.edu.cn		\
 		--to=linux-kernel@vger.kernel.org		\
-		--cc=linux-unicore@freelists.org		\
 		--cc=gxt@pku.edu.cn				\
 		--cc=linux@roeck-us.net				\
 		--cc=gang.chen.5i5j@gmail.com			\
 		$(DIR_WORKING)/patches/*
 
+#		--cc=linux-unicore@freelists.org	chewj error \
 #		--cc=linux@roeck-us.net				\
 #		--cc=torvalds@linux-foundation.org		\
 #		--cc=gxt@pku.edu.cn				\
