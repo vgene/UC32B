@@ -1,18 +1,38 @@
-
 mygit-help:
 	@echo "Simple git rules:"
+	@echo "     REV_LIST=HEAD~..HEAD make linux-format-patch"
 	@echo "     make linux-send-email"
 	@echo ""
 
+linux-format-patch:
+	@rm -f $(DIR_WORKING)/patches/*
+	@cd working/linux;					\
+	git format-patch --thread				\
+		--output-directory $(DIR_WORKING)/patches	\
+		$(REV_LIST)
+	@./working/linux/scripts/checkpatch.pl $(DIR_WORKING)/patches/*	\
+		| tee $(DIR_WORKING)/checkpatch.log
+
+#		--cover-letter					\
+#		--subject-prefix=PATCH$PATCHVER			\
+
 linux-send-email:
-	@cd working/linux
-	@git send-email --from=gxt@mprc.pku.edu.cn		\
-		--cc=gxt@mprc.pku.edu.cn			\
-		$@
-#		--to=linux-kernel@vger.kernel.org		\
-#		--cc=torvalds@linux-foundation.org
-#		--cc=gang.chen.5i5j@gmail.com
-#		--cc=sunzc522@gmail.com
+	@cd working/linux;					\
+	git send-email --from=gxt@mprc.pku.edu.cn		\
+		--to=linux-kernel@vger.kernel.org		\
+		--cc=linux-unicore@freelists.org		\
+		--cc=gxt@pku.edu.cn				\
+		--cc=linux@roeck-us.net				\
+		--cc=gang.chen.5i5j@gmail.com			\
+		$(DIR_WORKING)/patches/*
+
+#		--cc=linux@roeck-us.net				\
+#		--cc=torvalds@linux-foundation.org		\
+#		--cc=gxt@pku.edu.cn				\
+#		--cc=gang.chen.5i5j@gmail.com			\
+#		--cc=sunzc522@gmail.com				\
+#		--cc=zhangmengchi@pku.edu.cn			\
+#		--cc=qinrui@pku.edu.cn				\
 #		--subject="[GIT PULL] unicore32 fixes for v3.7-rc1 "
 
 linux-request-pull-1:

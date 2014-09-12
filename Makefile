@@ -42,8 +42,7 @@ all:
 	@echo "Running qemu and get trace"
 	@echo "     make qemu-run  (file and local mode)"
 	@echo ""
-	@echo "To see mygit rules:"
-	@echo "     make mygit-help"
+	@make mygit-help
 
 include Makefile.mygit
 
