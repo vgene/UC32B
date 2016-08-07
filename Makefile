@@ -12,6 +12,7 @@ BUSYBOX_CONFIG	:= $(DIR_UNICORE32)/initramfs/initramfs_busybox_config
 BUSYBOX_BUILDLOG:= $(DIR_WORKING)/busybox-build.log
 
 QEMU_GITREPO	:= /pub/git/qemu.git
+QEMU_REPO31	:= $(USER)@192.168.200.31:/pub/git/qemu.git
 QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
 QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
