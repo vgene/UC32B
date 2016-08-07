@@ -17,7 +17,7 @@ QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
 QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
 
-LINUX_LOCALREPO	:= /pub/git/linux.git
+LINUX_REPOLOCAL	:= /pub/git/linux.git
 LINUX_REPO31	:= $(USER)@192.168.200.31:/pub/git/linux.git
 LINUX_REPOGITHUB:= git@github.com:gxt/linux.git
 LINUX_REPOLINUS	:= https://github.com/torvalds/linux.git
@@ -80,19 +80,16 @@ linux-new:
 	@rm -fr $(DIR_WORKING)/linux
 	@echo "Clone local repo"
 	@cd $(DIR_WORKING);						\
-		git clone $(LINUX_LOCALREPO) -- linux
-	@echo "Add and update remote repo31 (passwd needed) ..."
+		git clone $(LINUX_REPOLOCAL) -- linux
+	@echo "Add remote repos ..."
 	@cd $(DIR_WORKING)/linux;					\
 		git remote add repo31 $(LINUX_REPO31);			\
-		git remote update repo31
-	@echo "Add other remote repos ..."
-	@cd $(DIR_WORKING)/linux;					\
 		git remote add github $(LINUX_REPOGITHUB);		\
 		git remote add linus $(LINUX_REPOLINUS)
 	@echo "Git branch and checkout unicore32 patches"
 	@cd $(DIR_WORKING)/linux;					\
-		git branch unicore32 repo31/unicore32;			\
-		git branch unicore32-working repo31/unicore32-working;	\
+		git branch unicore32 origin/unicore32;			\
+		git branch unicore32-working origin/unicore32-working;	\
 		git checkout unicore32-working
 
 linux-make:
