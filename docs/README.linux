@@ -1,0 +1,7 @@
+
+linux kernel homepage: https://www.kernel.org/
+
+To get bare linus kernel: (my favor dir: /pub/git/linux.git)
+	git clone --bare git@ssh.github.com:torvalds/linux.git
+
+
