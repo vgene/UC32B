@@ -1,0 +1,19 @@
+
+github homepage: https://github.com/
+
+======================================================================
+Follow the github help:	Generating an SSH key
+However, 'Testing your SSH connection' cann't be passed
+	(ERROR: Connection timed out! WTF! GFW?)
+Solution:
+	http://blog.csdn.net/github_33934628/article/details/51812534
+	http://blog.it985.com/4511.html
+
+$ cat ~/.ssh/config
+host github.com
+hostname ssh.github.com
+port 443
+
+$ chmod 600 ~/.ssh/config
+$ ssh -T git@github.com		(NOW IT WORK!)
+======================================================================
