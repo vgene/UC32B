@@ -5,4 +5,5 @@ How to download: http://wiki.qemu.org/Download
 
 Yes, I need bare qemu repo: (my favor dir: /pub/git/qemu.git)
 	git clone --bare git://git.qemu-project.org/qemu.git
+	(about 100MB)
 
