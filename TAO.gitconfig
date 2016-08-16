@@ -8,21 +8,17 @@
 	interactive = auto
 	ui = true
 	pager = true
-[color "diff"]
-	meta = yellow bold
-	frag = magenta bold
-	old = red bold
-	new = green bold
-[color "status"]
-	added = yellow
-	changed = green
-	untracked = cyan
-[core]
-	pager = less -FRSX
 [alias]
+	ci = commit
 	co = checkout
-	ci = commit -a
+	br = branch
 	st = status
+	sh = show
+	df = diff
+	dc = diff --cached
 	di = diff
 	sb = show-branch
 	ls = log --oneline
+	lg = log -p
+[push]
+	default = matching
