@@ -1,0 +1,43 @@
+LINUX_REPO_LOCAL	:= /pub/git/linux.git
+LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
+LINUX_REPO_LINUS	:= git@github.com:torvalds/linux.git
+LINUX_ARCH		:= unicore32
+LINUX_BUILDLOG		:= $(DIR_WORKING)/linux-build.log
+LINUX_PATCHES_BASE	:= v4.8-rc1
+LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux
+LINUX_DEFCONFIG		:= unicore32_defconfig
+
+linux-new:
+	@echo "Remove old linux repo ..."
+	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
+	@rm -fr $(DIR_WORKING)/linux
+	@echo "Clone local repo"
+	@cd $(DIR_WORKING);					\
+		git clone $(LINUX_REPO_LOCAL) -- linux
+	@echo "Add remote repos ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git remote add github $(LINUX_REPO_GITHUB);	\
+		git remote add linus $(LINUX_REPO_LINUS)
+	@echo "Create branch and apply unicore32 patches"
+	@cd $(DIR_WORKING)/linux;				\
+		git branch unicore32 $(LINUX_PATCHES_BASE);	\
+		git checkout unicore32;				\
+		git am $(LINUX_PATCHES_DIR)/*
+
+linux-make:
+	@echo "Make mrproper ..."
+	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
+		mrproper >> $(LINUX_BUILDLOG) 2>&1
+	@echo "Make $(LINUX_DEFCONFIG) ..."
+	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
+		$(LINUX_DEFCONFIG) >> $(LINUX_BUILDLOG) 2>&1
+	@echo "Making (in several minutes) ..."
+	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH) -j4	\
+		>> $(LINUX_BUILDLOG) 2>&1
+	@echo "Softlinking necessary files ..."
+	@ln -sf $(DIR_WORKING)/linux/arch/unicore32/boot/zImage $(DIR_WORKING)
+	@ln -sf $(DIR_WORKING)/linux/System.map $(DIR_WORKING)
+	@echo "Generating disassembly file for vmlinux ..."
+	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
+		> $(DIR_WORKING)/vmlinux.disasm
+

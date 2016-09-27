@@ -17,15 +17,7 @@ QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
 QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
 
-LINUX_REPO_LOCAL	:= /pub/git/linux.git
-LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
-LINUX_REPO_LINUS	:= https://github.com/torvalds/linux.git
-LINUX_ARCH	:= unicore32
-LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
-
 PATH		:= $(CROSS_UNICORE32)/bin:$(PATH)
-
-LINUX_DEFCONFIG := unicore32_defconfig
 
 all:
 	@echo ""
@@ -45,6 +37,7 @@ all:
 	@make mygit-help
 
 include Makefile.mygit
+include Makefile.linux
 
 highfive:
 	@make clean
@@ -72,40 +65,6 @@ busybox:
 		>> $(BUSYBOX_BUILDLOG) 2>&1
 	@make -C $(DIR_WORKING)/busybox install			\
 		>> $(BUSYBOX_BUILDLOG) 2>&1
-
-linux-new:
-	@echo "Remove old linux repo ..."
-	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
-	@rm -fr $(DIR_WORKING)/linux
-	@echo "Clone local repo"
-	@cd $(DIR_WORKING);						\
-		git clone $(LINUX_REPO_LOCAL) -- linux
-	@echo "Add remote repos ..."
-	@cd $(DIR_WORKING)/linux;					\
-		git remote add github $(LINUX_REPO_GITHUB);		\
-		git remote add linus $(LINUX_REPO_LINUS)
-	@echo "Git branch and checkout unicore32 patches"
-	@cd $(DIR_WORKING)/linux;					\
-		git branch unicore32 origin/unicore32;			\
-		git branch unicore32-working origin/unicore32-working;	\
-		git checkout unicore32-working
-
-linux-make:
-	@echo "Make mrproper ..."
-	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
-		mrproper >> $(LINUX_BUILDLOG) 2>&1
-	@echo "Make $(LINUX_DEFCONFIG) ..."
-	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
-		$(LINUX_DEFCONFIG) >> $(LINUX_BUILDLOG) 2>&1
-	@echo "Making (in several minutes) ..."
-	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH) -j4	\
-		>> $(LINUX_BUILDLOG) 2>&1
-	@echo "Softlinking necessary files ..."
-	@ln -sf $(DIR_WORKING)/linux/arch/unicore32/boot/zImage $(DIR_WORKING)
-	@ln -sf $(DIR_WORKING)/linux/System.map $(DIR_WORKING)
-	@echo "Generating disassembly file for vmlinux ..."
-	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
-		> $(DIR_WORKING)/vmlinux.disasm
 
 qemu-new:
 	@test -d $(DIR_WORKING)/qemu-unicore32 ||		\
