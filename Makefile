@@ -17,10 +17,9 @@ QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
 QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
 
-LINUX_REPOLOCAL	:= /pub/git/linux.git
-LINUX_REPO31	:= $(USER)@192.168.200.31:/pub/git/linux.git
-LINUX_REPOGITHUB:= git@github.com:gxt/linux.git
-LINUX_REPOLINUS	:= https://github.com/torvalds/linux.git
+LINUX_REPO_LOCAL	:= /pub/git/linux.git
+LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
+LINUX_REPO_LINUS	:= https://github.com/torvalds/linux.git
 LINUX_ARCH	:= unicore32
 LINUX_BUILDLOG	:= $(DIR_WORKING)/linux-build.log
 
@@ -80,12 +79,11 @@ linux-new:
 	@rm -fr $(DIR_WORKING)/linux
 	@echo "Clone local repo"
 	@cd $(DIR_WORKING);						\
-		git clone $(LINUX_REPOLOCAL) -- linux
+		git clone $(LINUX_REPO_LOCAL) -- linux
 	@echo "Add remote repos ..."
 	@cd $(DIR_WORKING)/linux;					\
-		git remote add repo31 $(LINUX_REPO31);			\
-		git remote add github $(LINUX_REPOGITHUB);		\
-		git remote add linus $(LINUX_REPOLINUS)
+		git remote add github $(LINUX_REPO_GITHUB);		\
+		git remote add linus $(LINUX_REPO_LINUS)
 	@echo "Git branch and checkout unicore32 patches"
 	@cd $(DIR_WORKING)/linux;					\
 		git branch unicore32 origin/unicore32;			\
