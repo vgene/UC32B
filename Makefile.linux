@@ -3,7 +3,8 @@ LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
 LINUX_REPO_LINUS	:= git@github.com:torvalds/linux.git
 LINUX_ARCH		:= unicore32
 LINUX_BUILDLOG		:= $(DIR_WORKING)/linux-build.log
-LINUX_PATCHES_BASE	:= v4.8-rc1
+# v4.8-rc8
+LINUX_PATCHES_BASE	:= 08895a8b6b06ed2323cd97a36ee40a116b3db8ed
 LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux
 LINUX_DEFCONFIG		:= unicore32_defconfig
 
