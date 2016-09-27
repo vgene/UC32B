@@ -14,10 +14,6 @@ linux-new:
 	@echo "Clone local repo"
 	@cd $(DIR_WORKING);					\
 		git clone $(LINUX_REPO_LOCAL) -- linux
-	@echo "Add remote repos ..."
-	@cd $(DIR_WORKING)/linux;				\
-		git remote add github $(LINUX_REPO_GITHUB);	\
-		git remote add linus $(LINUX_REPO_LINUS)
 	@echo "Create branch and apply unicore32 patches"
 	@cd $(DIR_WORKING)/linux;				\
 		git branch unicore32 $(LINUX_PATCHES_BASE);	\
@@ -40,4 +36,18 @@ linux-make:
 	@echo "Generating disassembly file for vmlinux ..."
 	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
 		> $(DIR_WORKING)/vmlinux.disasm
+
+linux-update-from-linus:
+	@echo "Add remote repos ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git remote add linus $(LINUX_REPO_LINUS)
+	@echo "Remote update linus ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git remote update linus
+	@echo "Merge into master ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git merge linus/master
+	@echo "Push into origin ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git push origin master
 
