@@ -34,9 +34,6 @@ linux-make:
 	@echo "Softlinking necessary files ..."
 	@ln -sf $(DIR_WORKING)/linux/arch/unicore32/boot/zImage $(DIR_WORKING)
 	@ln -sf $(DIR_WORKING)/linux/System.map $(DIR_WORKING)
-	@echo "Generating disassembly file for vmlinux ..."
-	@$(OBJDUMP) -D $(DIR_WORKING)/linux/vmlinux		\
-		> $(DIR_WORKING)/vmlinux.disasm
 
 linux-update-from-linus:
 	@echo "Add remote repos ..."
