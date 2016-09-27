@@ -9,21 +9,22 @@ linux-format-patch:
 	@cd working/linux;					\
 	git format-patch --thread				\
 		--output-directory $(DIR_WORKING)/patches	\
+		--subject-prefix=PATCHv2			\
 		$(REV_LIST)
 	@./working/linux/scripts/checkpatch.pl $(DIR_WORKING)/patches/*	\
-		| tee $(DIR_WORKING)/checkpatch.log
+		> $(DIR_WORKING)/checkpatch.log
 
 #		--cover-letter					\
-#		--subject-prefix=PATCH$PATCHVER			\
 
 linux-send-email:
 	@git send-email --from=gxt@mprc.pku.edu.cn		\
 		--to=linux-kernel@vger.kernel.org		\
-		--cc=gxt@pku.edu.cn				\
 		--cc=linux@roeck-us.net				\
-		--cc=gang.chen.5i5j@gmail.com			\
+		--cc=gxt@pku.edu.cn				\
+		--cc=zhangheng@mprc.pku.edu.cn			\
 		$(DIR_WORKING)/patches/*
 
+#		--cc=gang.chen.5i5j@gmail.com			\
 #		--cc=linux-unicore@freelists.org	chewj error \
 #		--cc=linux@roeck-us.net				\
 #		--cc=torvalds@linux-foundation.org		\
