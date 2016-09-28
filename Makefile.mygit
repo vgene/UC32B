@@ -12,14 +12,15 @@ linux-format-patch:
 	git format-patch -M --thread --stdout			\
 		--subject-prefix=PATCHv2			\
 		--to=linux-kernel@vger.kernel.org		\
-		--cc=gxt@pku.edu.cn				\
+		--cc=linux@roeck-us.net				\
+		--cc=qinrui@pku.edu.cn				\
+		--cc=gxt@mprc.pku.edu.cn			\
 		--cc=zhangheng@mprc.pku.edu.cn			\
 		$(REV_LIST)
 
 #		--cover-letter					\
 #		--cc=gang.chen.5i5j@gmail.com			\
 #		--cc=linux-unicore@freelists.org		\
-#		--cc=linux@roeck-us.net				\
 #		--cc=torvalds@linux-foundation.org		\
 #		--cc=gxt@pku.edu.cn				\
 #		--cc=gang.chen.5i5j@gmail.com			\
