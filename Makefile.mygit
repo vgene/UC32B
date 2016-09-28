@@ -1,31 +1,24 @@
 mygit-help:
-	@echo "Simple git rules:"
+	@echo "Check patches:"
 	@echo "     REV_LIST=HEAD~..HEAD make linux-format-patch"
-	@echo "     make linux-send-email"
+	@echo "Send patches:"
+	@echo "     REV_LIST=HEAD~..HEAD make linux-format-patch | git imap-send"
+	@echo "Check patches:"
+	@echo "     REV_LIST=HEAD~..HEAD make linux-check-patch"
 	@echo ""
 
 linux-format-patch:
-	@rm -f $(DIR_WORKING)/patches/*
 	@cd working/linux;					\
-	git format-patch --thread				\
-		--output-directory $(DIR_WORKING)/patches	\
+	git format-patch -M --thread --stdout			\
 		--subject-prefix=PATCHv2			\
-		$(REV_LIST)
-	@./working/linux/scripts/checkpatch.pl $(DIR_WORKING)/patches/*	\
-		> $(DIR_WORKING)/checkpatch.log
-
-#		--cover-letter					\
-
-linux-send-email:
-	@git send-email --from=gxt@mprc.pku.edu.cn		\
 		--to=linux-kernel@vger.kernel.org		\
-		--cc=linux@roeck-us.net				\
 		--cc=gxt@pku.edu.cn				\
 		--cc=zhangheng@mprc.pku.edu.cn			\
-		$(DIR_WORKING)/patches/*
+		$(REV_LIST)
 
+#		--cover-letter					\
 #		--cc=gang.chen.5i5j@gmail.com			\
-#		--cc=linux-unicore@freelists.org	chewj error \
+#		--cc=linux-unicore@freelists.org		\
 #		--cc=linux@roeck-us.net				\
 #		--cc=torvalds@linux-foundation.org		\
 #		--cc=gxt@pku.edu.cn				\
@@ -34,6 +27,15 @@ linux-send-email:
 #		--cc=zhangmengchi@pku.edu.cn			\
 #		--cc=qinrui@pku.edu.cn				\
 #		--subject="[GIT PULL] unicore32 fixes for v3.7-rc1 "
+
+linux-check-patch:
+	@rm -f $(DIR_WORKING)/patches/*
+	@cd working/linux;					\
+	git format-patch -M --thread				\
+		--output-directory $(DIR_WORKING)/patches	\
+		$(REV_LIST)
+	@./working/linux/scripts/checkpatch.pl $(DIR_WORKING)/patches/*	\
+		> $(DIR_WORKING)/checkpatch.log
 
 linux-request-pull-1:
 	@cd working/linux;					\
