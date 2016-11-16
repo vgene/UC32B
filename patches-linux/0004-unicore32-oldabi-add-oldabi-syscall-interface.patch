@@ -7,6 +7,8 @@ v2: Change current_thread_info()->restart_block to current->restart_block in sig
 According to commit f56141e3e2d9aabf7e6b89680ab572c2cdbb2a24
 	all arches, signal: move restart_block to struct task_struct
 
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+
 v1: Define unicore32 oldabi syscall in
 	arch/unicore32/include/uapi/asm/unistd-oldabi.h.
 And implement some architecture related syscalls.
