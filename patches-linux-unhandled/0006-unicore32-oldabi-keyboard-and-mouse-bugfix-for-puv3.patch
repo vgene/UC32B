@@ -1,0 +1,160 @@
+From 60dbacdd7473a9a59741fbc13350c0783ce0e75c Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 18 Nov 2011 17:42:33 +0800
+Subject: [PATCH 6/8] unicore32-oldabi: keyboard and mouse bugfix for puv3
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ arch/unicore32/include/mach/puv3-atkbd.h | 43 ++++++++++++++++++++++++++++++++
+ drivers/input/keyboard/Kconfig           | 11 ++++++++
+ drivers/input/keyboard/atkbd.c           |  4 +++
+ drivers/input/mouse/psmouse-base.c       | 31 +++++++++++++++++++++++
+ 4 files changed, 89 insertions(+)
+ create mode 100644 arch/unicore32/include/mach/puv3-atkbd.h
+
+diff --git a/arch/unicore32/include/mach/puv3-atkbd.h b/arch/unicore32/include/mach/puv3-atkbd.h
+new file mode 100644
+index 0000000..2abd398
+--- /dev/null
++++ b/arch/unicore32/include/mach/puv3-atkbd.h
+@@ -0,0 +1,43 @@
++/*
++ * Special Key for NB0916
++ *	KEY_CAMERA: 212
++ *	KEY_WLAN: 238
++ *	KEY_BRIGHTNESSUP: 225
++ *	KEY_BRIGHTNESSDOWN: 224
++ *	KEY_SWITCHVIDEOMODE: 227
++ */
++	  0,  67,  65,  63,  61,  59,  60,  88,
++	  0,  68,  66,  64,  62,  15,  41, 117,
++	  0,  56,  42,  93,  29,  16,   2,   0,
++	  0,   0,  44,  31,  30,  17,   3,   0,
++	  0,  46,  45,  32,  18,   5,   4,  95,
++	  0,  57,  47,  33,  20,  19,   6, 183,
++	  0,  49,  48,  35,  34,  21,   7, 184,
++	  0,   0,  50,  36,  22,   8,   9, 185,
++	  0,  51,  37,  23,  24,  11,  10,   0,
++	  0,  52,  53,  38,  39,  25,  12,   0,
++	  0,  89,  40,   0,  26,  13,   0,   0,
++	 58,  54,  28,  27,   0,  43,   0,  85,
++	  0,  86,  91,  90,  92,   0,  14,  94,
++	  0,  79, 124,  75,  71, 121,   0,   0,
++	 82,  83,  80,  76,  77,  72,   1,  69,
++	 87,  78,  81,  74,  55,  73,  70,  99,
++
++	  0,   0,   0,   0,   0, 212,   0,   0,
++	  0,   0,   0,   0,   0,   0,   0,   0,
++	217, 100, 255,   0,  97, 165,   0,   0,
++	156,   0, 238,   0,   0,   0,   0, 125,
++	173, 114,   0, 113,   0,   0,   0, 126,
++	128,   0,   0, 140,   0,   0,   0, 127,
++	159,   0, 115,   0, 164, 225,   0, 116,
++	158,   0, 172, 166, 224,   0,   0, 142,
++	157,   0,   0,   0,   0,   0,   0,   0,
++	155,   0,  98,   0,   0, 163,   0,   0,
++	226,   0,   0,   0,   0,   0,   0,   0,
++	  0, 255,  96,   0,   0,   0, 143,   0,
++	  0,   0,   0, 227,   0,   0,   0,   0,
++	  0, 107,   0, 105, 102,   0,   0, 112,
++	110, 111, 108, 112, 106, 103,   0, 119,
++	  0, 118, 109,   0,  99, 104, 119,   0,
++
++	  0,   0,   0,  65,  99,
+diff --git a/drivers/input/keyboard/Kconfig b/drivers/input/keyboard/Kconfig
+index de08740..f208641 100644
+--- a/drivers/input/keyboard/Kconfig
++++ b/drivers/input/keyboard/Kconfig
+@@ -142,6 +142,17 @@ config KEYBOARD_QT2160
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called qt2160.
+ 
++config KEYBOARD_ATKBD_PKUNITY_KEYCODES
++	bool "Use PKUnity keyboard scancodes"
++	depends on ARCH_PUV3 && KEYBOARD_ATKBD
++	default y
++	help
++	  Say Y here if you have a PKUnity machine and want to use an AT or
++	  PS/2 keyboard, and your keyboard uses keycodes that are specific to
++	  PKUnity keyboards.
++
++	  Say N if you use a standard keyboard.
++
+ config KEYBOARD_BFIN
+ 	tristate "Blackfin BF54x keypad support"
+ 	depends on (BF54x && !BF544)
+diff --git a/drivers/input/keyboard/atkbd.c b/drivers/input/keyboard/atkbd.c
+index add5ffd..105c230 100644
+--- a/drivers/input/keyboard/atkbd.c
++++ b/drivers/input/keyboard/atkbd.c
+@@ -82,6 +82,10 @@ static const unsigned short atkbd_set2_keycode[ATKBD_KEYMAP_SIZE] = {
+ 
+ #include "hpps2atkbd.h"	/* include the keyboard scancodes */
+ 
++#elif CONFIG_KEYBOARD_ATKBD_PKUNITY_KEYCODES
++
++#include <mach/puv3-atkbd.h>
++
+ #else
+ 	  0, 67, 65, 63, 61, 59, 60, 88,  0, 68, 66, 64, 62, 15, 41,117,
+ 	  0, 56, 42, 93, 29, 16,  2,  0,  0,  0, 44, 31, 30, 17,  3,  0,
+diff --git a/drivers/input/mouse/psmouse-base.c b/drivers/input/mouse/psmouse-base.c
+index 22fe254..7a9492d 100644
+--- a/drivers/input/mouse/psmouse-base.c
++++ b/drivers/input/mouse/psmouse-base.c
+@@ -64,7 +64,11 @@ static bool psmouse_smartscroll = 1;
+ module_param_named(smartscroll, psmouse_smartscroll, bool, 0644);
+ MODULE_PARM_DESC(smartscroll, "Logitech Smartscroll autorepeat, 1 = enabled (default), 0 = disabled.");
+ 
++#if defined(CONFIG_UNICORE32) && defined(CONFIG_ARCH_PUV3)
++static unsigned int psmouse_resetafter = 1;
++#else
+ static unsigned int psmouse_resetafter = 5;
++#endif
+ module_param_named(resetafter, psmouse_resetafter, uint, 0644);
+ MODULE_PARM_DESC(resetafter, "Reset device after so many bad packets (0 = never).");
+ 
+@@ -135,6 +139,27 @@ psmouse_ret_t psmouse_process_byte(struct psmouse *psmouse)
+ 	if (psmouse->pktcnt < psmouse->pktsize)
+ 		return PSMOUSE_GOOD_DATA;
+ 
++#if defined(CONFIG_UNICORE32) && defined(CONFIG_ARCH_PUV3)
++	if (!(packet[0] & 0x8))
++		return PSMOUSE_BAD_DATA;
++	else {
++		if (packet[1] > 127) {
++			if (!(packet[0] & 0x10))
++				return PSMOUSE_BAD_DATA;
++		} else {
++			if ((packet[0] & 0x10))
++				return PSMOUSE_BAD_DATA;
++		}
++
++		if (packet[2] > 127) {
++			if (!(packet[0] & 0x20))
++				return PSMOUSE_BAD_DATA;
++		} else {
++			if ((packet[0] & 0x20))
++				return PSMOUSE_BAD_DATA;
++		}
++	}
++#endif
+ /*
+  * Full packet accumulated, process it
+  */
+@@ -1491,6 +1516,12 @@ static int psmouse_reconnect(struct serio *serio)
+ 
+ 	psmouse_set_state(psmouse, PSMOUSE_INITIALIZING);
+ 
++#if defined(CONFIG_UNICORE32) && defined(CONFIG_ARCH_PUV3)
++	if (psmouse->protocol_handler(psmouse) ==  PSMOUSE_BAD_DATA) {
++		if (ps2_command(&psmouse->ps2dev, NULL, PSMOUSE_CMD_RESET_DIS))
++			goto out;
++	} else
++#endif
+ 	if (psmouse->reconnect) {
+ 		if (psmouse->reconnect(psmouse))
+ 			goto out;
+-- 
+2.0.0.GIT
+

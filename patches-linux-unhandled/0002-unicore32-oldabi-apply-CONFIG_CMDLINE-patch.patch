@@ -1,0 +1,43 @@
+From 034d6a511a2229a59ceb798bfa7fa436a461dafb Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 16 Nov 2011 17:30:26 +0800
+Subject: [PATCH 2/8] unicore32-oldabi: apply CONFIG_CMDLINE patch
+
+1. delete rsize and wsize
+2. add proto=tcp
+3. change nfs version from v3 to v4
+
+Signed-off-by: Zhang Shu <davidshuzhang@gmail.com>
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ arch/unicore32/configs/unicore32_defconfig | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/arch/unicore32/configs/unicore32_defconfig b/arch/unicore32/configs/unicore32_defconfig
+index c9dd319..ce704ce 100644
+--- a/arch/unicore32/configs/unicore32_defconfig
++++ b/arch/unicore32/configs/unicore32_defconfig
+@@ -29,10 +29,7 @@ CONFIG_PCI_LEGACY=n
+ #	for debug, adding: earlyprintk=ocd,keep initcall_debug
+ #	others support: test_suspend=mem root=/dev/sda
+ #	hibernate support: resume=/dev/sda3
+-CONFIG_CMDLINE="earlyprintk=ocd,keep ignore_loglevel"
+-# TODO: mem=512M video=unifb:1024x600-16@75
+-# for nfs: root=/dev/nfs rw nfsroot=192.168.10.88:/home/udb/nfs/,rsize=1024,wsize=1024
+-#	ip=192.168.10.83:192.168.10.88:192.168.10.1:255.255.255.0::eth0:off
++CONFIG_CMDLINE="mem=512M earlyprintk=ocd,keep ignore_loglevel video=unifb:1024x600-16@75 root=/dev/nfs rw nfsroot=192.168.10.88:/home/udb/nfs/,proto=tcp ip=192.168.10.83:192.168.10.88:192.168.10.1:255.255.255.0::eth0:off"
+ CONFIG_CMDLINE_FORCE=y
+ 
+ ### Power management options
+@@ -192,7 +189,7 @@ CONFIG_UBIFS_FS=m
+ #	Network File Systems
+ CONFIG_NETWORK_FILESYSTEMS=y
+ CONFIG_NFS_FS=y
+-CONFIG_NFS_V3=y
++CONFIG_NFS_V4=y
+ CONFIG_ROOT_NFS=y
+ #	Partition Types
+ CONFIG_PARTITION_ADVANCED=y
+-- 
+2.0.0.GIT
+
