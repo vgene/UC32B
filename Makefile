@@ -73,13 +73,12 @@ qemu-new:
 	@rm -fr $(DIR_WORKING)/qemu
 	@cd $(DIR_WORKING); git clone $(QEMU_GITREPO)
 	@cd $(DIR_WORKING)/qemu;				\
-		git br unicore32 origin/unicore32;		\
+		git br unicore32;				\
 		git co unicore32
 
 qemu-make:
 	@echo "Configure qemu ..."
 	@cd $(DIR_WORKING)/qemu; ./configure			\
-		--enable-trace-backend=stderr			\
 		--target-list=$(QEMU_TARGETS)			\
 		--enable-debug			 		\
 		--disable-sdl			 		\
