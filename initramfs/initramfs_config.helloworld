@@ -1,0 +1,16 @@
+dir /dev 	755 0 0
+dir /proc 	755 0 0
+dir /bin 	755 0 0
+dir /sbin 	755 0 0
+dir /lib 	755 0 0
+dir /etc 	755 0 0
+dir /tmp 	755 0 0
+
+nod /dev/console 	644 0 0 c 5 1
+nod /dev/zero 		666 0 0 c 1 5
+nod /dev/null 		666 0 0 c 1 3
+nod /dev/loop0 		644 0 0 b 7 0
+nod /dev/tty	 	644 0 0 c 5 1
+nod /dev/mem		666 0 0 c 1 1
+
+file /init		helloworld 755 0 0

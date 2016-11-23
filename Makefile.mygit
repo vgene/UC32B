@@ -1,0 +1,69 @@
+mygit-help:
+	@echo "Check patches:"
+	@echo "     REV_LIST=HEAD~..HEAD make linux-format-patch"
+	@echo "Send patches:"
+	@echo "     REV_LIST=HEAD~..HEAD make linux-format-patch | git imap-send"
+	@echo "Check patches:"
+	@echo "     REV_LIST=HEAD~..HEAD make linux-check-patch"
+	@echo ""
+
+linux-format-patch:
+	@cd working/linux;					\
+	git format-patch -M --thread --stdout			\
+		--subject-prefix=PATCHv2			\
+		--to=linux-kernel@vger.kernel.org		\
+		--cc=linux@roeck-us.net				\
+		--cc=qinrui@pku.edu.cn				\
+		--cc=gxt@mprc.pku.edu.cn			\
+		--cc=zhangheng@mprc.pku.edu.cn			\
+		$(REV_LIST)
+
+#		--cover-letter					\
+#		--cc=gang.chen.5i5j@gmail.com			\
+#		--cc=linux-unicore@freelists.org		\
+#		--cc=torvalds@linux-foundation.org		\
+#		--cc=gxt@pku.edu.cn				\
+#		--cc=gang.chen.5i5j@gmail.com			\
+#		--cc=sunzc522@gmail.com				\
+#		--cc=zhangmengchi@pku.edu.cn			\
+#		--cc=qinrui@pku.edu.cn				\
+#		--subject="[GIT PULL] unicore32 fixes for v3.7-rc1 "
+
+linux-check-patch:
+	@rm -f $(DIR_WORKING)/patches/*
+	@cd working/linux;					\
+	git format-patch -M --thread				\
+		--output-directory $(DIR_WORKING)/patches	\
+		$(REV_LIST)
+	@./working/linux/scripts/checkpatch.pl $(DIR_WORKING)/patches/*	\
+		> $(DIR_WORKING)/checkpatch.log
+
+linux-request-pull-1:
+	@cd working/linux;					\
+	echo "Gen tag for-linus (key passphrase needed)";	\
+	git tag -f -u gxt@mprc.pku.edu.cn			\
+		-m "UniCore32 bug fixes for 3.16-rc1"		\
+		for-linus unicore32;				\
+	echo "Push commits and tags to $(LINUX_REPO31)";	\
+	git push -f --all $(LINUX_REPO31);			\
+	git push -f --tags $(LINUX_REPO31);			\
+	echo "Push commits and tags to github";			\
+	git push -f --all github;				\
+	git push -f --tags github
+
+linux-request-pull-2:
+	@cd working/linux;							\
+	git request-pull master git://github.com/gxt/linux.git for-linus	\
+		> ../unicore32-request-pull;					\
+	gpg -o ../unicore32-request-pull.sig					\
+		--clearsign ../unicore32-request-pull;				\
+	vi ../unicore32-request-pull.sig
+
+
+linux-request-pull-3:
+	mail -s "[GIT PULL] UniCore32 update for v3.16-rc1"			\
+		-c linux-kernel@vger.kernel.org					\
+		-c gxt@mprc.pku.edu.cn						\
+		torvalds@linux-foundation.org					\
+		< working/unicore32-request-pull.sig
+

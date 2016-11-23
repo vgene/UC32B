@@ -1,0 +1,4 @@
+Linux base: latest
+QEMU base: latest
+
+patches-linux-unhandled base: 3.7-rc4

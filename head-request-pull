@@ -1,0 +1,11 @@
+Hi Linus,
+
+This is unicore32 pull request for v3.15-rc8.
+
+This pull request includes bugfixes to make unicore32 successfully build under defconfig,
+and some changes for allmodconfig (though not finished).
+
+Please pull tags/for-linus with following updates.
+
+Thanks and Regards,
+Xuetao Guan

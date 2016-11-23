@@ -1,0 +1,51 @@
+LINUX_REPO_LOCAL	:= /pub/git/linux.git
+LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
+LINUX_REPO_LINUS	:= git@github.com:torvalds/linux.git
+LINUX_ARCH		:= unicore32
+LINUX_BUILDLOG		:= $(DIR_WORKING)/linux-build.log
+# v4.8-rc8
+LINUX_PATCHES_BASE	:= 08895a8b6b06ed2323cd97a36ee40a116b3db8ed
+LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux
+LINUX_DEFCONFIG		:= unicore32_defconfig
+
+linux-new:
+	@echo "Remove old linux repo ..."
+	@test -d $(DIR_WORKING) || mkdir -p $(DIR_WORKING)
+	@rm -fr $(DIR_WORKING)/linux
+	@echo "Clone local repo"
+	@cd $(DIR_WORKING);					\
+		git clone $(LINUX_REPO_LOCAL) -- linux
+	@echo "Create branch and apply unicore32 patches"
+	@cd $(DIR_WORKING)/linux;				\
+		git branch unicore32 $(LINUX_PATCHES_BASE);	\
+		git checkout unicore32;				\
+		git am $(LINUX_PATCHES_DIR)/*
+
+linux-make:
+	@echo "Make mrproper ..."
+	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
+		mrproper >> $(LINUX_BUILDLOG) 2>&1
+	@echo "Make $(LINUX_DEFCONFIG) ..."
+	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
+		$(LINUX_DEFCONFIG) >> $(LINUX_BUILDLOG) 2>&1
+	@echo "Making (in several minutes) ..."
+	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH) -j4	\
+		>> $(LINUX_BUILDLOG) 2>&1
+	@echo "Softlinking necessary files ..."
+	@ln -sf $(DIR_WORKING)/linux/arch/unicore32/boot/zImage $(DIR_WORKING)
+	@ln -sf $(DIR_WORKING)/linux/System.map $(DIR_WORKING)
+
+linux-update-from-linus:
+	@echo "Add remote repos ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git remote add linus $(LINUX_REPO_LINUS)
+	@echo "Remote update linus ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git remote update linus
+	@echo "Merge into master ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git merge linus/master
+	@echo "Push into origin ..."
+	@cd $(DIR_WORKING)/linux;				\
+		git push origin master
+
