@@ -1,4 +1,4 @@
-DIR_UNICORE32	:= $(wildcard ~/UniCore32)
+DIR_UNICORE32	:= /home/UC32B/LL1400012978/unicore32
 DIR_WORKING	:= $(DIR_UNICORE32)/working
 DIR_GNU_UC	:= /pub/toolchain/uc32/unicore32-linux/
 
@@ -7,7 +7,7 @@ CROSS_LIB	:= $(CROSS_UNICORE32)/unicore32-linux/lib
 CROSS_COMPILE	:= $(CROSS_UNICORE32)/bin/unicore32-linux-
 OBJDUMP		:= $(CROSS_COMPILE)objdump
 
-BUSYBOX_TARBALL	:= /pub/backup/busybox-1.20.0.tar.bz2
+BUSYBOX_TARBALL	:= ~/busybox-1.20.0.tar.bz2
 BUSYBOX_CONFIG	:= $(DIR_UNICORE32)/initramfs/initramfs_busybox_config
 BUSYBOX_BUILDLOG:= $(DIR_WORKING)/busybox-build.log
 
@@ -16,7 +16,7 @@ QEMU_REPO31	:= $(USER)@192.168.200.31:/pub/git/qemu.git
 QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
 QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
-
+QEMU_PATCHES    := $(DIR_UNICORE32)/patches-qemu
 PATH		:= $(CROSS_UNICORE32)/bin:$(PATH)
 
 all:
@@ -73,16 +73,19 @@ qemu-new:
 	@rm -fr $(DIR_WORKING)/qemu
 	@cd $(DIR_WORKING); git clone $(QEMU_GITREPO)
 	@cd $(DIR_WORKING)/qemu;				\
-		git br unicore32;				\
-		git co unicore32
-
+		git branch unicore32 0b8db8f;				\
+		git checkout unicore32;	\
+                git am $(QEMU_PATCHES)/*
 qemu-make:
 	@echo "Configure qemu ..."
-	@cd $(DIR_WORKING)/qemu; ./configure			\
-		--target-list=$(QEMU_TARGETS)			\
-		--enable-debug			 		\
-		--disable-sdl			 		\
-		--interp-prefix=$(DIR_GNU_UC)			\
+	@cd $(DIR_WORKING)/qemu; ./configure                    \
+                --target-list=$(QEMU_TARGETS)                   \
+                --enable-debug                                  \
+		--disable-werror				\
+		--enable-curses					\
+		--extra-cflags="-D restrict=restricT"		\
+		--disable-sdl                                   \
+                --interp-prefix=$(DIR_GNU_UC)                   \
 		--prefix=$(DIR_WORKING)/qemu-unicore32		\
 		>> $(QEMU_BUILDLOG) 2>&1
 	@echo "Make qemu and make install ..."
