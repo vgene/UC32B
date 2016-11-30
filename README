@@ -1,4 +1,7 @@
+See our_work/README.md for more information!
+
 Linux base: latest
 QEMU base: latest
 
-patches-linux-unhandled base: 3.7-rc4
+patches-linux-unhandled base: 	3.7
+patches-qemu base:				0b8db8f
