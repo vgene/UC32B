@@ -75,19 +75,20 @@ qemu-new:
 	@cd $(DIR_WORKING)/qemu;				\
 		git branch unicore32 0b8db8f;				\
 		git checkout unicore32;	\
-                git am $(QEMU_PATCHES)/*
+        git am $(QEMU_PATCHES)/*
+
 qemu-make:
 	@echo "Configure qemu ..."
 	@cd $(DIR_WORKING)/qemu; ./configure                    \
-                --target-list=$(QEMU_TARGETS)                   \
-                --enable-debug                                  \
-		--disable-werror				\
-		--enable-curses					\
-		--extra-cflags="-D restrict=restricT"		\
-		--disable-sdl                                   \
-                --interp-prefix=$(DIR_GNU_UC)                   \
-		--prefix=$(DIR_WORKING)/qemu-unicore32		\
-		>> $(QEMU_BUILDLOG) 2>&1
+                --target-list=$(QEMU_TARGETS)				\
+                --enable-debug								\
+				--disable-werror							\
+				--enable-curses								\
+				--extra-cflags="-D restrict=restricT"		\
+				--disable-sdl                               \
+       		    --interp-prefix=$(DIR_GNU_UC)               \
+				--prefix=$(DIR_WORKING)/qemu-unicore32		\
+				>> $(QEMU_BUILDLOG) 2>&1
 	@echo "Make qemu and make install ..."
 	@make -C $(DIR_WORKING)/qemu -j4 >> $(QEMU_BUILDLOG) 2>&1
 	@make -C $(DIR_WORKING)/qemu install >> $(QEMU_BUILDLOG) 2>&1
@@ -101,9 +102,9 @@ qemu-run:
 		-M puv3						\
 		-m 512						\
 		-icount 0					\
-		-kernel $(DIR_WORKING)/zImage			\
-		-net nic					\
-		-net tap,ifname=tap_$(USER),script=no,downscript=no	\
-		-append "root=/dev/nfs nfsroot=192.168.200.161:/export/guestroot/,tcp rw ip=192.168.122.4"    \
+		-kernel $(DIR_WORKING)/zImage
+		# -net nic					\
+		# -net tap,ifname=tap_$(USER),script=no,downscript=no	\
+		# -append "root=/dev/nfs nfsroot=192.168.200.161:/export/guestroot/,tcp rw ip=192.168.122.4"    \
 		2> $(QEMU_TRACELOG)
 
