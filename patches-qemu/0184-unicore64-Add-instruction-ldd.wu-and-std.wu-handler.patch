@@ -1,0 +1,181 @@
+From a92409249d073abafe41cbe09b9597cfe6b2dd3f Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Fri, 14 Sep 2012 18:07:12 +0800
+Subject: [PATCH 184/247] unicore64: Add instruction ldd.wu and std.wu handler
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c   |    2 +-
+ target-unicore64/translate.c |  114 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 115 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index e5a646c..48105d7 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -104,8 +104,8 @@ void do_interrupt(CPUUniCore64State *env)
+     case UC64_EXCP_ITRAP:
+     case UC64_EXCP_DTRAP:
+     case UC64_INTR_ITIMER:
+-        break;
+     case UC64_EXCP_PRIV:
++        break;
+     default:
+         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
+         return;
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 36b94a5..54f82a5 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -25,6 +25,8 @@
+ 
+ static TCGv_ptr cpu_env;
+ static TCGv_i64 cpu_R[32];
++static TCGv_i64 cpu_R29[3];
++static TCGv_i64 cpu_R30[3];
+ 
+ static TCGv_i64 ex_addr_LL; /* exclusive address for LL */
+ static bool LLbit;
+@@ -37,6 +39,9 @@ static const char *regnames[] = {
+       "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+       "r24", "r25", "r26", "r27", "r28", "r29", "r30", "pc" };
+ 
++static const char *r29names[] = {"r29_user", "r29_priv", "r29_debug"};
++static const char *r30names[] = {"r30_user", "r30_priv", "r30_debug"};
++
+ /* initialize TCG globals.  */
+ void uc64_translate_init(void)
+ {
+@@ -49,6 +54,13 @@ void uc64_translate_init(void)
+                            offsetof(CPUUniCore64State, regs[i]), regnames[i]);
+     }
+ 
++    for (i = 0; i < 3; i++) {
++        cpu_R29[i] = tcg_global_mem_new_i64(TCG_AREG0,
++                     offsetof(CPUUniCore64State, banked_r29[i]), r29names[i]);
++        cpu_R30[i] = tcg_global_mem_new_i64(TCG_AREG0,
++                     offsetof(CPUUniCore64State, banked_r30[i]), r30names[i]);
++    }
++
+     ex_addr_LL = tcg_global_mem_new_i64(TCG_AREG0,
+            offsetof(CPUUniCore64State, exclusive_addr_ll), "ex_addr_ll");
+     LLbit = false;
+@@ -1013,6 +1025,105 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     tcg_temp_free_i64(t_rd_64);
+ }
+ 
++static void do_ldst_user(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
++{
++    TCGv_i64 t_addr, t_op2_64, t_rd_64;
++
++    ILLEGAL_INSN(!UCOP_LDST_BHD); /* prefetch or sync? */
++
++    t_addr = tcg_temp_new_i64();
++    t_op2_64 = tcg_temp_new_i64();
++    t_rd_64 = tcg_temp_new_i64();
++
++    /* Prepare base address */
++    if (UCOP_REG_S1 == 31) {
++        tcg_gen_movi_i64(t_addr, s->dc_pc);
++    } else {
++        tcg_gen_mov_i64(t_addr, cpu_R[UCOP_REG_S1]);
++    }
++
++    /* Prepare op2 */
++    if (UCOP_SET(21)) { /* reg or imm */
++        tcg_gen_movi_i64(t_op2_64, UCOP_IMM11);
++    } else {
++        ILLEGAL_INSN(UCOP_REG_S2 == 31);
++        ILLEGAL_INSN(UCOP_IMM_6);
++
++        tcg_gen_mov_i64(t_op2_64, cpu_R[UCOP_REG_S2]);
++    }
++
++    if (UCOP_SET(27)) { /* pre */
++        if (UCOP_SET(28)) { /* add */
++            tcg_gen_add_i64(t_addr, t_addr, t_op2_64);
++        } else { /* sub */
++            tcg_gen_sub_i64(t_addr, t_addr, t_op2_64);
++        }
++    }
++
++    if (UCOP_SET(25)) { /* load */
++        switch (UCOP_LDST_BHD) {
++        case 0:
++            ILLEGAL_INSN(true);
++            break;
++        case 1:
++            tcg_gen_qemu_ld64(t_rd_64, t_addr, 1);
++            break;
++        }
++    } else { /* store */
++        if (UCOP_REG_D == 31) {
++            tcg_gen_movi_i64(t_rd_64, s->dc_pc);
++        } else {
++            if (UCOP_REG_D == 29) {
++                tcg_gen_mov_i64(t_rd_64, cpu_R29[0]);
++            } else if (UCOP_REG_D == 30) {
++                tcg_gen_mov_i64(t_rd_64, cpu_R30[0]);
++            } else {
++                tcg_gen_mov_i64(t_rd_64, cpu_R[UCOP_REG_D]);
++            }
++        }
++
++        switch (UCOP_LDST_BHD) {
++        case 1:
++            tcg_gen_qemu_st64(t_rd_64, t_addr, 1);
++            break;
++        default:
++            ILLEGAL_INSN(true);
++            break;
++        }
++    }
++
++    if (!UCOP_SET(27)) { /* post */
++        ILLEGAL_INSN(!UCOP_SET(26)); /* post && !writeback is illegal */
++
++        if (UCOP_SET(28)) { /* add */
++            tcg_gen_add_i64(t_addr, t_addr, t_op2_64);
++        } else { /* sub */
++            tcg_gen_sub_i64(t_addr, t_addr, t_op2_64);
++        }
++    }
++
++    if (!UCOP_SET(27) || UCOP_SET(26)) { /* post || writeback */
++        ILLEGAL_INSN(UCOP_REG_S1 == 31);
++
++        tcg_gen_mov_i64(cpu_R[UCOP_REG_S1], t_addr);
++    }
++
++    if (UCOP_SET(25)) { /* Complete the load, in case rd==rs1 */
++        ILLEGAL_INSN(UCOP_REG_D == 31);
++        if (UCOP_REG_D == 29) {
++            tcg_gen_mov_i64(cpu_R29[0], t_rd_64);
++        } else if (UCOP_REG_D == 30) {
++            tcg_gen_mov_i64(cpu_R30[0], t_rd_64);
++        } else {
++            tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_rd_64);
++        }
++    }
++
++    tcg_temp_free_i64(t_addr);
++    tcg_temp_free_i64(t_op2_64);
++    tcg_temp_free_i64(t_rd_64);
++}
++
+ static void do_swap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
+     TCGv_i64 t_addr, t_op2_64;
+@@ -1337,6 +1448,9 @@ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+         break;
+     case 0x4:
+         switch ((insn >> 23) & 0x3) {
++        case 0x0:
++            do_ldst_user(env, s, insn);
++            break;
+         case 0x2:
+             do_llsc(env, s, insn);
+             break;
+-- 
+1.7.9.5
+

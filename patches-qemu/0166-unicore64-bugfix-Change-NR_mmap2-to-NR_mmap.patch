@@ -1,0 +1,26 @@
+From ff900e96fcf0fa0f9e4120d244b61acf749512af Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 18:39:29 +0800
+Subject: [PATCH 166/247] unicore64-bugfix: Change NR_mmap2 to NR_mmap
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ linux-user/unicore64/syscall_nr.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/linux-user/unicore64/syscall_nr.h b/linux-user/unicore64/syscall_nr.h
+index 1c69eec..92ae27e 100644
+--- a/linux-user/unicore64/syscall_nr.h
++++ b/linux-user/unicore64/syscall_nr.h
+@@ -225,7 +225,7 @@
+ #define TARGET_NR_keyctl 219
+ #define TARGET_NR_clone 220
+ #define TARGET_NR_execve 221
+-#define TARGET_NR_mmap2 222
++#define TARGET_NR_mmap 222
+ #define TARGET_NR_fadvise64_64 223
+ #define TARGET_NR_swapon 224
+ #define TARGET_NR_swapoff 225
+-- 
+1.7.9.5
+

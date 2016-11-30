@@ -1,0 +1,37 @@
+From c4da69de4ce5e9d2b9603782bf615ab53f2618eb Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Mon, 26 May 2014 10:13:10 +0800
+Subject: [PATCH 246/247] unicore64: Delete needness print info in ostimer
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/puv4_ost.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/hw/puv4_ost.c b/hw/puv4_ost.c
+index d303cdf..d4e4479 100644
+--- a/hw/puv4_ost.c
++++ b/hw/puv4_ost.c
+@@ -41,11 +41,8 @@ static uint64_t uc64_ost_read(void *opaque, target_phys_addr_t offset,
+             ptimer_set_count(s->ptimer, 0);
+             ptimer_run(s->ptimer, 0);
+             ost_init = 1;
+-            fprintf(stderr, "OSMR0 ost_init\n");
+         }
+         ret = s->reg_OSMR0 - (uint32_t)ptimer_get_count(s->ptimer);
+-        fprintf(stderr, "OSMR0 %" PRIx32 " ptimer_count %" PRIx32 "\n",
+-                s->reg_OSMR0, (uint32_t)ptimer_get_count(s->ptimer));
+         break;
+     case 0x14:
+         ret = s->reg_OSSR;
+@@ -100,7 +97,6 @@ static void uc64_ost_tick(void *opaque)
+ 
+     s->reg_OSCR = s->reg_OSMR0;
+     s->reg_OSSR |= 0x1;
+-    //qemu_irq_raise(s->irq_otimer);
+ }
+ 
+ static int uc64_ost_init(SysBusDevice *dev)
+-- 
+1.7.9.5
+

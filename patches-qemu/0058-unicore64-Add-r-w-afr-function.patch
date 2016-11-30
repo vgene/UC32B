@@ -1,0 +1,92 @@
+From 508721457fae2df5437b5dcd4e35662b1d3515f4 Mon Sep 17 00:00:00 2001
+From: huangmingkai <huangmingkai@mprc.pku.edu.cn>
+Date: Fri, 10 Aug 2012 03:03:50 +0800
+Subject: [PATCH 058/247] unicore64: Add r/w afr function
+
+Signed-off-by: Huang Mingkai <huangmingkai@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |   12 ++++++++++++
+ target-unicore64/helper.h    |    2 ++
+ target-unicore64/translate.c |   30 ++++++++++++++++++++++++++++++
+ 3 files changed, 44 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 77d7fad..6c595b7 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -49,6 +49,18 @@ void helper_cp1_putx(target_ulong x)
+     fflush(NULL);
+ }
+ 
++void HELPER(afr_write)(uint32_t x)
++{
++    env->NF = (x >> 3) & 0x1;
++    env->ZF = (x >> 2) & 0x1;
++    env->CF = (x >> 1) & 0x1;
++    env->VF = (x >> 0) & 0x1;
++}
++
++uint32_t HELPER(afr_read)(void)
++{
++    return (env->NF << 3) | (env->ZF << 2) | (env->CF << 1) | (env->VF << 0);
++}
+ /*
+  * Flag setting arithmetic is awkward because we need to do comparisons.
+  * The only way to do that in TCG is a conditional branch, which clobbers
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 27e977a..7b8e8f9 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -11,6 +11,8 @@
+ DEF_HELPER_1(cp1_putc, void, i64)
+ DEF_HELPER_1(cp1_putx, void, i64)
+ 
++DEF_HELPER_0(afr_read, i32)
++DEF_HELPER_1(afr_write, void, i32)
+ DEF_HELPER_2(sub_cc_i32, i32, i32, i32)
+ DEF_HELPER_2(sub_cc_i64, i64, i64, i64)
+ DEF_HELPER_2(add_cc_i32, i32, i32, i32)
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index b956c7e..5151eba 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -417,6 +417,36 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+ static void do_srfr(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
++    TCGv_i32 t_flag_32;
++
++    if ((insn & 0xfbfffff0) == 0x38200000) { /* insn mov afr, imm */
++        t_flag_32 = tcg_temp_new_i32();
++
++        tcg_gen_movi_i32(t_flag_32, insn & 0xf);
++        if (UCOP_SET(26)) { /* C bit*/
++            gen_helper_afr_write(t_flag_32);
++        } else {
++            ILLEGAL_INSN(true);
++        }
++
++        tcg_temp_free_i32(t_flag_32);
++        return;
++    }
++    if ((insn & 0xf3e0ffff) == 0x20000000) { /* insn mov rd, afr */
++        t_flag_32 = tcg_temp_new_i32();
++
++        if (UCOP_SET(27) && UCOP_SET(26)) { /* F bit C bit */
++            gen_helper_afr_read(t_flag_32);
++            tcg_gen_extu_i32_i64(cpu_R[UCOP_REG_D], t_flag_32);
++        } else {
++            ILLEGAL_INSN(true);
++        }
++
++        tcg_temp_free_i32(t_flag_32);
++        return;
++    }
++
++    /* otherwise */
+     ILLEGAL_INSN(true);
+ }
+ 
+-- 
+1.7.9.5
+

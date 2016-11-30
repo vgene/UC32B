@@ -1,0 +1,225 @@
+From ac9f575a9444ae1243bbf7f6fd617ac138320e1d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 16:06:31 +0800
+Subject: [PATCH 091/247] unicore64: Add addc subc rsubc instructions
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |   60 +++++++++++++++++++++++
+ target-unicore64/helper.h    |    4 ++
+ target-unicore64/translate.c |  107 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 171 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index e7ad7c2..ca1f238 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -134,6 +134,66 @@ uint64_t HELPER(add_cc_i64)(uint64_t a, uint64_t b)
+     return result;
+ }
+ 
++uint32_t HELPER(sbc_cc_i32)(uint32_t a, uint32_t b)
++{
++    uint32_t result;
++    if (!env->CF) {
++        result = a - b - 1;
++        env->CF = a > b;
++    } else {
++        result = a - b;
++        env->CF = a >= b;
++    }
++    env->VF = ((a ^ b) & (a ^ result)) >> 31;
++    env->NF = env->ZF = (int32_t)result;
++    return result;
++}
++
++uint64_t HELPER(sbc_cc_i64)(uint64_t a, uint64_t b)
++{
++    uint64_t result;
++    if (!env->CF) {
++        result = a - b - 1;
++        env->CF = a > b;
++    } else {
++        result = a - b;
++        env->CF = a >= b;
++    }
++    env->VF = ((a ^ b) & (a ^ result)) >> 63;
++    env->NF = env->ZF = result;
++    return result;
++}
++
++uint32_t HELPER(adc_cc_i32)(uint32_t a, uint32_t b)
++{
++    uint32_t result;
++    if (!env->CF) {
++        result = a + b;
++        env->CF = result < a;
++    } else {
++        result = a + b + 1;
++        env->CF = result <= a;
++    }
++    env->VF = (int32_t)((a ^ b ^ -1) & (a ^ result));
++    env->NF = env->ZF = (int32_t)result;
++    return result;
++}
++
++uint64_t HELPER(adc_cc_i64)(uint64_t a, uint64_t b)
++{
++    uint64_t result;
++    if (!env->CF) {
++        result = a + b;
++        env->CF = result < a;
++    } else {
++        result = a + b + 1;
++        env->CF = result <= a;
++    }
++    env->VF = ((a ^ b ^ -1) & (a ^ result));
++    env->NF = env->ZF = result;
++    return result;
++}
++
+ #ifdef CONFIG_USER_ONLY
+ void switch_mode(CPUUniCore64State *env, int mode)
+ {
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index a41efde..b0cf36b 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -22,5 +22,9 @@ DEF_HELPER_2(sub_cc_i32, i32, i32, i32)
+ DEF_HELPER_2(sub_cc_i64, i64, i64, i64)
+ DEF_HELPER_2(add_cc_i32, i32, i32, i32)
+ DEF_HELPER_2(add_cc_i64, i64, i64, i64)
++DEF_HELPER_2(sbc_cc_i32, i32, i32, i32)
++DEF_HELPER_2(sbc_cc_i64, i64, i64, i64)
++DEF_HELPER_2(adc_cc_i32, i32, i32, i32)
++DEF_HELPER_2(adc_cc_i64, i64, i64, i64)
+ 
+ #include "def-helper.h"
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 0e38535..821a521 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -207,6 +207,68 @@ static void gen_test_cond(int cond, int label)
+     tcg_temp_free_i64(t_f1_64);
+ }
+ 
++/* dest = T0 + T1 + CF. */
++static void gen_add_carry_i32(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
++{
++    TCGv_i32 tmp_32;
++    TCGv_i64 tmp_64;
++    tmp_32 = tcg_temp_new_i32();
++    tmp_64 = tcg_temp_new_i64();
++
++    tcg_gen_add_i32(dest, t0, t1);
++    gen_load_cpu_field(tmp_64, CF);
++    tcg_gen_trunc_i64_i32(tmp_32, tmp_64);
++    tcg_gen_add_i32(dest, dest, tmp_32);
++
++    tcg_temp_free_i32(tmp_32);
++    tcg_temp_free_i64(tmp_64);
++}
++
++/* dest = T0 - T1 + CF - 1.  */
++static void gen_sub_carry_i32(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
++{
++    TCGv_i32 tmp_32;
++    TCGv_i64 tmp_64;
++    tmp_32 = tcg_temp_new_i32();
++    tmp_64 = tcg_temp_new_i64();
++
++    tcg_gen_sub_i32(dest, t0, t1);
++    gen_load_cpu_field(tmp_64, CF);
++    tcg_gen_trunc_i64_i32(tmp_32, tmp_64);
++    tcg_gen_add_i32(dest, dest, tmp_32);
++    tcg_gen_subi_i32(dest, dest, 1);
++
++    tcg_temp_free_i32(tmp_32);
++    tcg_temp_free_i64(tmp_64);
++}
++
++/* dest = T0 + T1 + CF. */
++static void gen_add_carry_i64(TCGv_i64 dest, TCGv_i64 t0, TCGv_i64 t1)
++{
++    TCGv_i64 tmp_64;
++    tmp_64 = tcg_temp_new_i64();
++
++    tcg_gen_add_i64(dest, t0, t1);
++    gen_load_cpu_field(tmp_64, CF);
++    tcg_gen_add_i64(dest, dest, tmp_64);
++
++    tcg_temp_free_i64(tmp_64);
++}
++
++/* dest = T0 - T1 + CF - 1.  */
++static void gen_sub_carry_i64(TCGv_i64 dest, TCGv_i64 t0, TCGv_i64 t1)
++{
++    TCGv_i64 tmp_64;
++    tmp_64 = tcg_temp_new_i64();
++
++    tcg_gen_sub_i64(dest, t0, t1);
++    gen_load_cpu_field(tmp_64, CF);
++    tcg_gen_add_i64(dest, dest, tmp_64);
++    tcg_gen_subi_i64(dest, dest, 1);
++
++    tcg_temp_free_i64(tmp_64);
++}
++
+ static inline void gen_goto_tb(DisasContext *s, int n, target_ulong dest)
+ {
+     TranslationBlock *tb;
+@@ -503,6 +565,51 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             }
+         }
+         break;
++    case 0x05: /* insn addc daddc */
++        if (!UCOP_SET(23)) { /* S bit */
++            if (UCOP_SET(22)) { /* insn DADDC */
++                gen_add_carry_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn ADDC */
++                gen_add_carry_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
++        } else {
++            if (UCOP_SET(22)) { /* insn DADDC */
++                gen_helper_adc_cc_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn ADDC */
++                gen_helper_adc_cc_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
++        }
++        break;
++    case 0x06: /* insn subc dsubc */
++        if (!UCOP_SET(23)) { /* S bit */
++            if (UCOP_SET(22)) { /* insn DSUBC */
++                gen_sub_carry_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn SUBC */
++                gen_sub_carry_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
++        } else {
++            if (UCOP_SET(22)) { /* insn DSUBC */
++                gen_helper_sbc_cc_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn SUBC */
++                gen_helper_sbc_cc_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
++        }
++        break;
++    case 0x07: /* insn rsubc drsubc */
++        if (!UCOP_SET(23)) { /* S bit */
++            if (UCOP_SET(22)) { /* insn DRSUBC */
++                gen_sub_carry_i64(t_op2_64, t_op2_64, t_op1_64);
++            } else { /* insn RSUBC */
++                gen_sub_carry_i32(t_op2_32, t_op2_32, t_op1_32);
++            }
++        } else {
++            if (UCOP_SET(22)) { /* insn DRSUBC */
++                gen_helper_sbc_cc_i64(t_op2_64, t_op2_64, t_op1_64);
++            } else { /* insn RSUBC */
++                gen_helper_sbc_cc_i32(t_op2_32, t_op2_32, t_op1_32);
++            }
++        }
++        break;
+     case 0x08: /* insn CMPAND DCMPAND */
+         ILLEGAL_INSN(!UCOP_SET(23)); /* S bit */
+         ILLEGAL_INSN(UCOP_REG_D);
+-- 
+1.7.9.5
+

@@ -1,0 +1,27 @@
+From d18fc54b859047871d26b0101ec25ffbee5552a4 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 9 Aug 2012 16:45:49 +0800
+Subject: [PATCH 056/247] unicore64: Add NZCF print information
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 2dc67ac..8859bde 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -769,6 +769,9 @@ void cpu_dump_state(CPUUniCore64State *env, FILE *f,
+             cpu_fprintf(f, " ");
+         }
+     }
++    cpu_fprintf(f, " NF=%16" PRIx64 "  ZF=%16" PRIx64
++            "  CF=%16" PRIx64 "  VF=%16" PRIx64 "\n",
++            env->NF, env->ZF, env->CF, env->VF);
+ }
+ 
+ void restore_state_to_opc(CPUUniCore64State *env, TranslationBlock *tb,
+-- 
+1.7.9.5
+

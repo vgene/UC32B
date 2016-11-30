@@ -1,0 +1,64 @@
+From 9ee7e668c468bad2745e40b674ab293605ebe287 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 18:39:25 +0800
+Subject: [PATCH 238/247] unicore64: Adjust IPI bit and add IPI trace
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/unicore64/cp0_intc.c    |    3 ---
+ target-unicore64/helper.c  |    2 ++
+ target-unicore64/softmmu.c |    1 +
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index f429e84..0029dda 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -59,15 +59,12 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+     CPUUniCore64State *env = (CPUUniCore64State *)opaque;
+ 
+     trace_uc64_intc_cpu_handler(irq, level);
+-    uint64_t mask = 0;
+ 
+     if (irq == UC64_INTR_ITM) { /* ITIMER */
+         irq = UC64_CP0_INTRTYPE_ITM;
+     } else if (irq == UC64_INTR_DEV) {
+         irq = UC64_CP0_INTRTYPE_DEV;
+     } else if (irq == UC64_INTR_SMP) {
+-        mask = 1<<(env->cpu_index + 9);
+-        env->cp0.c10_intrtype |= mask;
+         irq = UC64_CP0_INTRTYPE_IPI;
+     } else if (irq == UC64_INTR_OTM) {
+         irq = UC64_CP0_TYPE_OTM;
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 09e378a..c509c85 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -455,10 +455,12 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+             break;
+         case 3:
+             ipi_env = qemu_get_cpu(0);
++            ipi_env->cp0.c10_intrtype |= 1<<(env->cpu_index + 9);
+             uc64_cp0_intc_irq_raise(ipi_env, UC64_INTR_SMP);
+             break;
+         case 4:
+             ipi_env = qemu_get_cpu(1);
++            ipi_env->cp0.c10_intrtype |= 1<<(env->cpu_index + 9);
+             uc64_cp0_intc_irq_raise(ipi_env, UC64_INTR_SMP);
+             break;
+         case 10: /* Match Register */
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index c845ba9..a327590 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -122,6 +122,7 @@ void do_interrupt(CPUUniCore64State *env)
+     switch (env->exception_index) {
+     case UC64_INTR_IPI:
+         {
++            trace_uc64_do_interrupt("IPI", env->uncached_asr);
+             if (ipi_flag) {
+                 break;
+             } else {
+-- 
+1.7.9.5
+

@@ -1,0 +1,84 @@
+From 6fe3da89356947c7af84e535024e4fbc8c0f7a69 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 11 Aug 2012 09:51:56 +0800
+Subject: [PATCH 077/247] unicore64: Add gen_flags_logic and handle S bit in
+ condmove and muldiv
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index afb4a81..a52afb2 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -88,6 +88,21 @@ typedef struct DisasContext {
+ #define gen_load_cpu_field(t_op_64, name)               \
+     tcg_gen_ld_i64(t_op_64, cpu_env, offsetof(CPUUniCore64State, name))
+ 
++/* Set flags from result.  */
++static inline void gen_flags_logic(TCGv_i64 var_rd)
++{
++    TCGv_i64 t_flag = tcg_temp_new_i64();
++
++    tcg_gen_st_i64(var_rd, cpu_env, offsetof(CPUUniCore64State, NF));
++    tcg_gen_st_i64(var_rd, cpu_env, offsetof(CPUUniCore64State, ZF));
++
++    tcg_gen_movi_i64(t_flag, 0);
++    tcg_gen_st_i64(t_flag, cpu_env, offsetof(CPUUniCore64State, CF));
++    tcg_gen_st_i64(t_flag, cpu_env, offsetof(CPUUniCore64State, VF));
++
++    tcg_temp_free_i64(t_flag);
++}
++
+ static void gen_test_cond(int cond, int label)
+ {
+     TCGv_i64 t_f1_64, t_f2_64;
+@@ -295,7 +310,6 @@ static void do_condmove(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+     ILLEGAL_INSN(UCOP_REG_D == 31);
+     ILLEGAL_INSN(!UCOP_SET(24));
+-    ILLEGAL_INSN(UCOP_SET(23)); /* S bit */
+     ILLEGAL_INSN(UCOP_SET(11));
+     ILLEGAL_INSN((UCOP_CMOV_COND == 0xe) || (UCOP_CMOV_COND == 0xf));
+ 
+@@ -337,6 +351,13 @@ static void do_condmove(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         }
+     }
+ 
++    if (UCOP_SET(23)) { /* S bit */
++        if (!UCOP_SET(22)) { /* word */
++            tcg_gen_ext_i32_i64(t_op2_64, t_op2_32); /* Signed extend */
++        }
++        gen_flags_logic(t_op2_64);
++    }
++
+     /* Free temp variables */
+     tcg_temp_free_i64(t_op2_64);
+     if (!UCOP_SET(22)) {
+@@ -570,7 +591,6 @@ static void do_muldiv(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     TCGv_i64 t_op1_64, t_op2_64, t_rd_64;
+     TCGv_i32 t_op1_32, t_op2_32, t_rd_32;
+ 
+-    ILLEGAL_INSN(UCOP_SET(23)); /* S bit */
+     ILLEGAL_INSN(UCOP_SET(26));
+     ILLEGAL_INSN(UCOP_SET(25));
+     ILLEGAL_INSN(UCOP_SET(24));
+@@ -637,6 +657,13 @@ static void do_muldiv(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     /* Write the result */
+     tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_rd_64);
+ 
++    if (UCOP_SET(23)) { /* S bit */
++        if (!UCOP_SET(22)) { /* word */
++            tcg_gen_ext_i32_i64(t_rd_64, t_rd_32); /* Signed extend */
++        }
++        gen_flags_logic(t_rd_64);
++    }
++
+     /* Free temp vars */
+     if (!UCOP_SET(22)) {
+         tcg_temp_free_i32(t_op1_32);
+-- 
+1.7.9.5
+

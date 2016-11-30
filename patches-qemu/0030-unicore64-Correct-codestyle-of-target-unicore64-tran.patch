@@ -1,0 +1,44 @@
+From 64df61f9e4a859c7cf9f65134870d6ea04d6a251 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 7 Aug 2012 10:22:30 +0800
+Subject: [PATCH 030/247] unicore64: Correct codestyle of
+ target-unicore64/translate.c
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 2d03e8c..d5f643c 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -183,17 +183,21 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+          * Also stop translation when a page boundary is reached.  This
+          * ensures prefetch aborts occur at the right place.  */
+         num_insns++;
+-        if (num_insns >= max_insns)
++        if (num_insns >= max_insns) {
+             goto done_disas_loop;
++        }
+ 
+-        if (singlestep || env->singlestep_enabled)
++        if (singlestep || env->singlestep_enabled) {
+             goto done_disas_loop;
++        }
+ 
+-        if (gen_opc_ptr >= gen_opc_buf + OPC_MAX_SIZE)
++        if (gen_opc_ptr >= gen_opc_buf + OPC_MAX_SIZE) {
+             goto done_disas_loop;
++        }
+ 
+-        if (dc->dc_pc >= (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE)
++        if (dc->dc_pc >= (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE) {
+             goto done_disas_loop;
++        }
+ 
+     } while (dc->dc_jmp != DISAS_NEXT);
+ 
+-- 
+1.7.9.5
+

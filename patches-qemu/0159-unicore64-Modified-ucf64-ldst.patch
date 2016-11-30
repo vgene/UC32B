@@ -1,0 +1,82 @@
+From fe4dda465e73dc1ff9f582157f778082bf250e3a Mon Sep 17 00:00:00 2001
+From: Tianbao Song <songtianbao@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 03:52:47 +0800
+Subject: [PATCH 159/247] unicore64: Modified ucf64 ldst
+
+Signed-off-by: Song Tianbao <songtianbao@mprc.pku.edu.cn>
+---
+ target-unicore64/ucf64_trans.h |   21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 936db88..d2e417e 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -230,11 +230,13 @@ static void do_ucf64_ldst(CPUUniCore64State *env, DisasContext *s,
+                           uint32_t insn)
+ {
+     TCGv_i64 t_addr, t_addrh, t_rd_64;
++    TCGv_i32 t_rd_32;
+     int offset, freg;
+ 
+     t_addr = tcg_temp_new_i64();
+     t_addrh = tcg_temp_new_i64();
+     t_rd_64 = tcg_temp_new_i64();
++    t_rd_32 = tcg_temp_new_i32();
+ 
+     /* Prepare base address */
+     if (UCOP_REG_S1 == 31) {
+@@ -259,30 +261,36 @@ static void do_ucf64_ldst(CPUUniCore64State *env, DisasContext *s,
+             freg = UCOP_REG_D & 0x1e; /* rd should be 0, 2, 4... */
+ 
+             tcg_gen_qemu_ld32u(t_rd_64, t_addr, 1);
+-            tcg_gen_st_i64(t_rd_64, cpu_env, ucf64_reg_offset(freg));
++            tcg_gen_trunc_i64_i32(t_rd_32, t_rd_64);
++            tcg_gen_st_i32(t_rd_32, cpu_env, ucf64_reg_offset(freg));
+ 
+             tcg_gen_addi_i64(t_addrh, t_addr, 4);
+ 
+             tcg_gen_qemu_ld32u(t_rd_64, t_addrh, 1);
+-            tcg_gen_st_i64(t_rd_64, cpu_env, ucf64_reg_offset(freg + 1));
++            tcg_gen_trunc_i64_i32(t_rd_32, t_rd_64);
++            tcg_gen_st_i32(t_rd_32, cpu_env, ucf64_reg_offset(freg + 1));
+         } else { /* word */
+             tcg_gen_qemu_ld32u(t_rd_64, t_addr, 1);
+-            tcg_gen_st_i64(t_rd_64, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            tcg_gen_trunc_i64_i32(t_rd_32, t_rd_64);
++            tcg_gen_st_i32(t_rd_32, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+         }
+ 
+     } else { /* store */
+         if (UCOP_SET(0)) { /* dword */
+            freg = UCOP_REG_D & 0x1e; /* rd should be 0, 2, 4... */
+ 
+-            tcg_gen_ld_i64(t_rd_64, cpu_env, ucf64_reg_offset(freg));
++            tcg_gen_ld_i32(t_rd_32, cpu_env, ucf64_reg_offset(freg));
++            tcg_gen_extu_i32_i64(t_rd_64, t_rd_32);
+             tcg_gen_qemu_st32(t_rd_64, t_addr, 1);
+ 
+             tcg_gen_addi_i64(t_addrh, t_addr, 4);
+ 
+-            tcg_gen_ld_i64(t_rd_64, cpu_env, ucf64_reg_offset(freg + 1));
++            tcg_gen_ld_i32(t_rd_32, cpu_env, ucf64_reg_offset(freg + 1));
++            tcg_gen_extu_i32_i64(t_rd_64, t_rd_32);
+             tcg_gen_qemu_st32(t_rd_64, t_addrh, 1);
+         } else { /* word */
+-            tcg_gen_ld_i64(t_rd_64, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            tcg_gen_ld_i32(t_rd_32, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            tcg_gen_extu_i32_i64(t_rd_64, t_rd_32);
+             tcg_gen_qemu_st32(t_rd_64, t_addr, 1);
+         }
+     }
+@@ -303,6 +311,7 @@ static void do_ucf64_ldst(CPUUniCore64State *env, DisasContext *s,
+     tcg_temp_free_i64(t_addr);
+     tcg_temp_free_i64(t_addrh);
+     tcg_temp_free_i64(t_rd_64);
++    tcg_temp_free_i32(t_rd_32);
+ }
+ 
+ static void do_ucf64(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+-- 
+1.7.9.5
+

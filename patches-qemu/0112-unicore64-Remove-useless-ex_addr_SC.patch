@@ -1,0 +1,66 @@
+From 19797df01ac1fd0fbdcb739f7266e13978ceccf2 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 14 Aug 2012 12:29:31 +0800
+Subject: [PATCH 112/247] unicore64: Remove useless ex_addr_SC
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h       |    1 -
+ target-unicore64/translate.c |    9 ++-------
+ 2 files changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 0ecc9b4..bfbbdae 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -52,7 +52,6 @@ typedef struct CPUUniCore64State {
+ 
+     /* Addr for LL-SC */
+     uint64_t exclusive_addr_ll;
+-    uint64_t exclusive_addr_sc;
+ 
+     /* System control coprocessor (cp0) */
+     struct {
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index e1a5d3e..b2c395e 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -27,7 +27,6 @@ static TCGv_ptr cpu_env;
+ static TCGv_i64 cpu_R[32];
+ 
+ static TCGv_i64 ex_addr_LL; /* exclusive address for LL */
+-static TCGv_i64 ex_addr_SC; /* exclusive address for SC */
+ static bool LLbit;
+ 
+ #include "gen-icount.h"
+@@ -52,8 +51,6 @@ void uc64_translate_init(void)
+ 
+     ex_addr_LL = tcg_global_mem_new_i64(TCG_AREG0,
+            offsetof(CPUUniCore64State, exclusive_addr_ll), "ex_addr_ll");
+-    ex_addr_SC = tcg_global_mem_new_i64(TCG_AREG0,
+-           offsetof(CPUUniCore64State, exclusive_addr_sc), "ex_addr_sc");
+     LLbit = false;
+ 
+ #define GEN_HELPER 2
+@@ -1087,16 +1084,14 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             fail_label = gen_new_label();
+             done_label = gen_new_label();
+ 
+-            tcg_gen_mov_i64(ex_addr_SC, t_addr);
+             tcg_gen_brcond_i64(TCG_COND_NE, t_addr, ex_addr_LL, fail_label);
+             /* Above tcg will destroy t_addr ??? */
+-            tcg_gen_mov_i64(t_addr, ex_addr_SC);
+ 
+             tcg_gen_mov_i64(t_rd_64, cpu_R[UCOP_REG_D]);
+             if (UCOP_SET(22)) { /* double word */
+-                tcg_gen_qemu_st64(t_rd_64, t_addr, 1);
++                tcg_gen_qemu_st64(t_rd_64, ex_addr_LL, 1);
+             } else { /* word */
+-                tcg_gen_qemu_st32(t_rd_64, t_addr, 1);
++                tcg_gen_qemu_st32(t_rd_64, ex_addr_LL, 1);
+             }
+ 
+             /* Now, t_rd_64 is used for LLbit */
+-- 
+1.7.9.5
+

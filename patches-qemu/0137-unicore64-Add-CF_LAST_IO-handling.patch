@@ -1,0 +1,51 @@
+From 98568bbc7f3632622696a9ac006f6f95c0ba4890 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 17:03:44 +0800
+Subject: [PATCH 137/247] unicore64: Add CF_LAST_IO handling
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index ba0d891..7e66074 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1357,7 +1357,6 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+     gen_icount_start();
+     do {
+         UNHANDLED_FLOW(unlikely(!QTAILQ_EMPTY(&env->breakpoints)));
+-        UNHANDLED_FLOW(tb->cflags & CF_LAST_IO);
+ 
+         if (search_pc) {
+             j = gen_opc_ptr - gen_opc_buf;
+@@ -1372,6 +1371,10 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+             gen_opc_icount[lj] = num_insns;
+         }
+ 
++        if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO)) {
++            gen_io_start();
++        }
++
+         disas_uc64_insn(env, dc);
+ 
+         dc->dc_pc += 4;
+@@ -1405,6 +1408,14 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+     } while (dc->dc_jmp == DISAS_NEXT);
+ 
+ done_disas_loop:
++    if (tb->cflags & CF_LAST_IO) {
++        if (dc->dc_condinsn) {
++            /* FIXME: This can theoretically happen with self-modifying code */
++            cpu_abort(env, "IO on conditional branch instruction");
++        }
++        gen_io_end();
++    }
++
+     if (unlikely(env->singlestep_enabled)) {
+         UNHANDLED_FLOW(true);
+     } else {
+-- 
+1.7.9.5
+

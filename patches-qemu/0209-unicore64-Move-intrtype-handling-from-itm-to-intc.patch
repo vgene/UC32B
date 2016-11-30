@@ -1,0 +1,58 @@
+From 0c763a7b1d7d5badcfcf802d17e716c86ca42f00 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 19:46:09 +0800
+Subject: [PATCH 209/247] unicore64: Move intrtype handling from itm to intc
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4_cp0_intc.c     |    5 ++++-
+ hw/puv4_cp0_itm.c      |    3 +--
+ target-unicore64/cpu.h |    2 +-
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/hw/puv4_cp0_intc.c b/hw/puv4_cp0_intc.c
+index 50e1665..3ffe18e 100644
+--- a/hw/puv4_cp0_intc.c
++++ b/hw/puv4_cp0_intc.c
+@@ -26,8 +26,11 @@ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
+     }
+ }
+ 
+-void uc64_cp0_intc_irq_raise(int irq)
++void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int irq)
+ {
++    if (irq == 2)
++        env->cp0.c10_intrtype |= UC64_CP0_INTRTYPE_ITM;
++
+     qemu_irq_raise(uc64_cpu_intc[irq]);
+ }
+ 
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+index 9a6ad66..126554b 100644
+--- a/hw/puv4_cp0_itm.c
++++ b/hw/puv4_cp0_itm.c
+@@ -43,8 +43,7 @@ static void uc64_cp0_itm_tick(void *opaque)
+             env->cp0.c10_itimercr, env->cp0.c10_itimermr);
+ 
+     env->cp0.c10_itimercr = env->cp0.c10_itimermr;
+-    env->cp0.c10_intrtype |= UC64_CP0_INTRTYPE_ITM;
+-    uc64_cp0_intc_irq_raise(2);
++    uc64_cp0_intc_irq_raise(env, 2);
+ }
+ 
+ void uc64_cp0_itm_init(CPUUniCore64State *env)
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 8e1f151..34665a4 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -180,6 +180,6 @@ uint64_t uc64_cp0_itimer_get_delta(void);
+ void uc64_cp0_itimer_set_count(uint64_t value);
+ 
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int);
+-void uc64_cp0_intc_irq_raise(int);
++void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int);
+ 
+ #endif /* QEMU_UNICORE64_CPU_H */
+-- 
+1.7.9.5
+

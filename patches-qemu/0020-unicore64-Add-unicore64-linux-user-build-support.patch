@@ -1,0 +1,1154 @@
+From e7619493c8552b92f96b9d73f01d05a5a8ab5e7d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 4 Aug 2012 13:01:41 +0800
+Subject: [PATCH 020/247] unicore64: Add unicore64-linux-user build support
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ configure                                |    7 +
+ cpu-exec.c                               |   11 +-
+ default-configs/unicore64-linux-user.mak |    1 +
+ elf.h                                    |    1 +
+ linux-user/elfload.c                     |   28 +++
+ linux-user/main.c                        |   16 ++
+ linux-user/syscall_defs.h                |    9 +-
+ linux-user/unicore64/syscall.h           |   50 +++++
+ linux-user/unicore64/syscall_nr.h        |  324 ++++++++++++++++++++++++++++++
+ linux-user/unicore64/target_signal.h     |   22 ++
+ linux-user/unicore64/termbits.h          |    2 +
+ target-unicore64/Makefile.objs           |    3 +
+ target-unicore64/cpu-qom.h               |   59 ++++++
+ target-unicore64/cpu.c                   |   83 ++++++++
+ target-unicore64/cpu.h                   |  132 ++++++++++++
+ target-unicore64/helper.c                |   64 ++++++
+ target-unicore64/helper.h                |   13 ++
+ target-unicore64/translate.c             |   86 ++++++++
+ 18 files changed, 907 insertions(+), 4 deletions(-)
+ create mode 100644 default-configs/unicore64-linux-user.mak
+ create mode 100644 linux-user/unicore64/syscall.h
+ create mode 100644 linux-user/unicore64/syscall_nr.h
+ create mode 100644 linux-user/unicore64/target_signal.h
+ create mode 100644 linux-user/unicore64/termbits.h
+ create mode 100644 target-unicore64/Makefile.objs
+ create mode 100644 target-unicore64/cpu-qom.h
+ create mode 100644 target-unicore64/cpu.c
+ create mode 100644 target-unicore64/cpu.h
+ create mode 100644 target-unicore64/helper.c
+ create mode 100644 target-unicore64/helper.h
+ create mode 100644 target-unicore64/translate.c
+
+diff --git a/configure b/configure
+index efaff00..115fcd2 100755
+--- a/configure
++++ b/configure
+@@ -901,6 +901,9 @@ case "$cpu" in
+     unicore32*)
+            host_guest_base="yes"
+            ;;
++    unicore64*)
++           host_guest_base="yes"
++           ;;
+ esac
+ 
+ [ -z "$guest_base" ] && guest_base="$host_guest_base"
+@@ -962,6 +965,7 @@ sparc-linux-user \
+ sparc64-linux-user \
+ sparc32plus-linux-user \
+ unicore32-linux-user \
++unicore64-linux-user \
+ s390x-linux-user \
+ "
+ fi
+@@ -3738,6 +3742,9 @@ case "$target_arch2" in
+   unicore32)
+     target_phys_bits=32
+   ;;
++  unicore64)
++    target_phys_bits=64
++  ;;
+   xtensa|xtensaeb)
+     TARGET_ARCH=xtensa
+     target_phys_bits=32
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 6c4e516..ad6b249 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -220,6 +220,7 @@ int cpu_exec(CPUArchState *env)
+ #elif defined(TARGET_ALPHA)
+ #elif defined(TARGET_ARM)
+ #elif defined(TARGET_UNICORE32)
++#elif defined(TARGET_UNICORE64)
+ #elif defined(TARGET_PPC)
+     env->reserve_addr = -1;
+ #elif defined(TARGET_LM32)
+@@ -280,7 +281,8 @@ int cpu_exec(CPUArchState *env)
+                     }
+ #if defined(TARGET_ARM) || defined(TARGET_SPARC) || defined(TARGET_MIPS) || \
+     defined(TARGET_PPC) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) || \
+-    defined(TARGET_MICROBLAZE) || defined(TARGET_LM32) || defined(TARGET_UNICORE32)
++    defined(TARGET_MICROBLAZE) || defined(TARGET_LM32) || \
++    defined(TARGET_UNICORE32) || defined(TARGET_UNICORE64)
+                     if (interrupt_request & CPU_INTERRUPT_HALT) {
+                         env->interrupt_request &= ~CPU_INTERRUPT_HALT;
+                         env->halted = 1;
+@@ -451,6 +453,12 @@ int cpu_exec(CPUArchState *env)
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
++#elif defined(TARGET_UNICORE64)
++                    if (interrupt_request & CPU_INTERRUPT_HARD
++                        && !(env->uncached_asr & ASR_INTR_SELECT)) {
++                        do_interrupt(env);
++                        next_tb = 0;
++                    }
+ #elif defined(TARGET_SH4)
+                     if (interrupt_request & CPU_INTERRUPT_HARD) {
+                         do_interrupt(env);
+@@ -649,6 +657,7 @@ int cpu_exec(CPUArchState *env)
+ #elif defined(TARGET_ARM)
+     /* XXX: Save/restore host fpu exception state?.  */
+ #elif defined(TARGET_UNICORE32)
++#elif defined(TARGET_UNICORE64)
+ #elif defined(TARGET_SPARC)
+ #elif defined(TARGET_PPC)
+ #elif defined(TARGET_LM32)
+diff --git a/default-configs/unicore64-linux-user.mak b/default-configs/unicore64-linux-user.mak
+new file mode 100644
+index 0000000..6aafd21
+--- /dev/null
++++ b/default-configs/unicore64-linux-user.mak
+@@ -0,0 +1 @@
++# Default configuration for unicore32-linux-user
+diff --git a/elf.h b/elf.h
+index a21ea53..d269654 100644
+--- a/elf.h
++++ b/elf.h
+@@ -109,6 +109,7 @@ typedef int64_t  Elf64_Sxword;
+ #define EM_OPENRISC     92        /* OpenCores OpenRISC */
+ 
+ #define EM_UNICORE32    110     /* UniCore32 */
++#define EM_UNICORE64    110     /* UniCore64, FIXME lator */
+ 
+ /*
+  * This is an interim value that we will use until the committee comes
+diff --git a/linux-user/elfload.c b/linux-user/elfload.c
+index 6b622d4..a695c25 100644
+--- a/linux-user/elfload.c
++++ b/linux-user/elfload.c
+@@ -479,6 +479,34 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUUniCore32Sta
+ 
+ #endif
+ 
++#ifdef TARGET_UNICORE64
++
++#define ELF_START_MMAP          0ULL
++
++#define elf_check_arch(x)       ((x) == EM_UNICORE64)
++
++#define ELF_CLASS               ELFCLASS64
++#define ELF_ARCH                EM_UNICORE64
++
++static inline void init_thread(struct target_pt_regs *regs,
++        struct image_info *infop)
++{
++    /* UNICORE64 TODO */
++    abort();
++}
++
++#define ELF_NREG    36
++typedef target_elf_greg_t  target_elf_gregset_t[ELF_NREG];
++
++/* UNICORE64 FIXME:
++static void elf_core_copy_regs(target_elf_gregset_t *regs,
++        const CPUUniCore64State *env)
++{
++    abort();
++}
++*/
++#endif
++
+ #ifdef TARGET_SPARC
+ #ifdef TARGET_SPARC64
+ 
+diff --git a/linux-user/main.c b/linux-user/main.c
+index 9d921aa..9bf2e7e 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -996,6 +996,13 @@ error:
+ }
+ #endif
+ 
++#ifdef TARGET_UNICORE64
++void cpu_loop(CPUUniCore64State *env)
++{
++    abort();
++}
++#endif
++
+ #ifdef TARGET_SPARC
+ #define SPARC64_STACK_BIAS 2047
+ 
+@@ -3461,6 +3468,8 @@ int main(int argc, char **argv, char **envp)
+         cpu_model = "any";
+ #elif defined(TARGET_UNICORE32)
+         cpu_model = "any";
++#elif defined(TARGET_UNICORE64)
++        cpu_model = "any";
+ #elif defined(TARGET_M68K)
+         cpu_model = "any";
+ #elif defined(TARGET_SPARC)
+@@ -3782,6 +3791,13 @@ int main(int argc, char **argv, char **envp)
+             env->regs[i] = regs->uregs[i];
+         }
+     }
++#elif defined(TARGET_UNICORE64)
++    {
++        int i;
++        for (i = 0; i < 32; i++) {
++            env->regs[i] = regs->uc64_regs[i];
++        }
++    }
+ #elif defined(TARGET_SPARC)
+     {
+         int i;
+diff --git a/linux-user/syscall_defs.h b/linux-user/syscall_defs.h
+index ba9a58c..5c201eb 100644
+--- a/linux-user/syscall_defs.h
++++ b/linux-user/syscall_defs.h
+@@ -58,7 +58,8 @@
+ #endif
+ 
+ #if defined(TARGET_I386) || defined(TARGET_ARM) || defined(TARGET_SH4) \
+-    || defined(TARGET_M68K) || defined(TARGET_CRIS) || defined(TARGET_UNICORE32) \
++    || defined(TARGET_M68K) || defined(TARGET_CRIS) \
++    || defined(TARGET_UNICORE32) || defined(TARGET_UNICORE64) \
+     || defined(TARGET_S390X) || defined(TARGET_OPENRISC)
+ 
+ #define TARGET_IOC_SIZEBITS	14
+@@ -323,7 +324,8 @@ int do_sigaction(int sig, const struct target_sigaction *act,
+     || defined(TARGET_PPC) || defined(TARGET_MIPS) || defined(TARGET_SH4) \
+     || defined(TARGET_M68K) || defined(TARGET_ALPHA) || defined(TARGET_CRIS) \
+     || defined(TARGET_MICROBLAZE) || defined(TARGET_UNICORE32) \
+-    || defined(TARGET_S390X) || defined(TARGET_OPENRISC)
++    || defined(TARGET_S390X) || defined(TARGET_OPENRISC) \
++    || defined(TARGET_UNICORE64)
+ 
+ #if defined(TARGET_SPARC)
+ #define TARGET_SA_NOCLDSTOP    8u
+@@ -1787,7 +1789,8 @@ struct QEMU_PACKED target_stat64 {
+ 	unsigned long long	st_ino;
+ };
+ 
+-#elif defined(TARGET_I386) && !defined(TARGET_ABI32)
++#elif (defined(TARGET_I386) && !defined(TARGET_ABI32)) \
++    || defined(TARGET_UNICORE64)
+ struct target_stat {
+ 	abi_ulong	st_dev;
+ 	abi_ulong	st_ino;
+diff --git a/linux-user/unicore64/syscall.h b/linux-user/unicore64/syscall.h
+new file mode 100644
+index 0000000..f2b94bd
+--- /dev/null
++++ b/linux-user/unicore64/syscall.h
+@@ -0,0 +1,50 @@
++/*
++ * Copyright (C) 2012 Guan Xuetao
++ */
++#ifndef QEMU_UC64_SYSCALL_H
++#define QEMU_UC64_SYSCALL_H
++
++struct target_pt_regs {
++    abi_ulong uc64_regs[36];
++};
++
++#define UC64_R00                uc64_regs[0]
++#define UC64_R01                uc64_regs[1]
++#define UC64_R02                uc64_regs[2]
++#define UC64_R03                uc64_regs[3]
++#define UC64_R04                uc64_regs[4]
++#define UC64_R05                uc64_regs[5]
++#define UC64_R06                uc64_regs[6]
++#define UC64_R07                uc64_regs[7]
++#define UC64_R08                uc64_regs[8]
++#define UC64_R09                uc64_regs[9]
++#define UC64_R10                uc64_regs[10]
++#define UC64_R11                uc64_regs[11]
++#define UC64_R12                uc64_regs[12]
++#define UC64_R13                uc64_regs[13]
++#define UC64_R14                uc64_regs[14]
++#define UC64_R15                uc64_regs[15]
++#define UC64_R16                uc64_regs[16]
++#define UC64_R17                uc64_regs[17]
++#define UC64_R18                uc64_regs[18]
++#define UC64_R19                uc64_regs[19]
++#define UC64_R20                uc64_regs[20]
++#define UC64_R21                uc64_regs[21]
++#define UC64_R22                uc64_regs[22]
++#define UC64_R23                uc64_regs[23]
++#define UC64_R24                uc64_regs[24]
++#define UC64_R25                uc64_regs[25]
++#define UC64_R26                uc64_regs[26]
++#define UC64_R27                uc64_regs[27]
++#define UC64_R28                uc64_regs[28]
++#define UC64_R29                uc64_regs[29]
++#define UC64_R30                uc64_regs[30]
++#define UC64_R31                uc64_regs[31]
++#define UC64_ASR                uc64_regs[32]
++#define UC64_AFR                uc64_regs[33]
++#define UC64_SW0                uc64_regs[34] /* CP0_SYSU #0 */
++#define UC64_O00                uc64_regs[35] /* Orig R00 */
++
++#define UNAME_MACHINE           "UniCore64"
++
++#endif /* QEMU_UC64_SYSCALL_H */
+diff --git a/linux-user/unicore64/syscall_nr.h b/linux-user/unicore64/syscall_nr.h
+new file mode 100644
+index 0000000..2f778db
+--- /dev/null
++++ b/linux-user/unicore64/syscall_nr.h
+@@ -0,0 +1,324 @@
++/*
++ * This file contains the system call numbers for UniCore64 oldabi.
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ */
++#define TARGET_NR_io_setup 0
++#define TARGET_NR_io_destroy 1
++#define TARGET_NR_io_submit 2
++#define TARGET_NR_io_cancel 3
++#define TARGET_NR_io_getevents 4
++#define TARGET_NR_setxattr 5
++#define TARGET_NR_lsetxattr 6
++#define TARGET_NR_fsetxattr 7
++#define TARGET_NR_getxattr 8
++#define TARGET_NR_lgetxattr 9
++#define TARGET_NR_fgetxattr 10
++#define TARGET_NR_listxattr 11
++#define TARGET_NR_llistxattr 12
++#define TARGET_NR_flistxattr 13
++#define TARGET_NR_removexattr 14
++#define TARGET_NR_lremovexattr 15
++#define TARGET_NR_fremovexattr 16
++#define TARGET_NR_getcwd 17
++#define TARGET_NR_lookup_dcookie 18
++#define TARGET_NR_eventfd2 19
++#define TARGET_NR_epoll_create1 20
++#define TARGET_NR_epoll_ctl 21
++#define TARGET_NR_epoll_pwait 22
++#define TARGET_NR_dup 23
++#define TARGET_NR_dup3 24
++#define TARGET_NR_fcntl64 25
++#define TARGET_NR_inotify_init1 26
++#define TARGET_NR_inotify_add_watch 27
++#define TARGET_NR_inotify_rm_watch 28
++#define TARGET_NR_ioctl 29
++#define TARGET_NR_ioprio_set 30
++#define TARGET_NR_ioprio_get 31
++#define TARGET_NR_flock 32
++#define TARGET_NR_mknodat 33
++#define TARGET_NR_mkdirat 34
++#define TARGET_NR_unlinkat 35
++#define TARGET_NR_symlinkat 36
++#define TARGET_NR_linkat 37
++#define TARGET_NR_renameat 38
++#define TARGET_NR_umount2 39
++#define TARGET_NR_mount 40
++#define TARGET_NR_pivot_root 41
++#define TARGET_NR_nfsservctl 42
++#define TARGET_NR_statfs64 43
++#define TARGET_NR_fstatfs64 44
++#define TARGET_NR_truncate64 45
++#define TARGET_NR_ftruncate64 46
++#define TARGET_NR_fallocate 47
++#define TARGET_NR_faccessat 48
++#define TARGET_NR_chdir 49
++#define TARGET_NR_fchdir 50
++#define TARGET_NR_chroot 51
++#define TARGET_NR_fchmod 52
++#define TARGET_NR_fchmodat 53
++#define TARGET_NR_fchownat 54
++#define TARGET_NR_fchown 55
++#define TARGET_NR_openat 56
++#define TARGET_NR_close 57
++#define TARGET_NR_vhangup 58
++#define TARGET_NR_pipe2 59
++#define TARGET_NR_quotactl 60
++#define TARGET_NR_getdents64 61
++#define TARGET_NR_llseek 62
++#define TARGET_NR_read 63
++#define TARGET_NR_write 64
++#define TARGET_NR_readv 65
++#define TARGET_NR_writev 66
++#define TARGET_NR_pread64 67
++#define TARGET_NR_pwrite64 68
++#define TARGET_NR_preadv 69
++#define TARGET_NR_pwritev 70
++#define TARGET_NR_sendfile64 71
++#define TARGET_NR_pselect6 72
++#define TARGET_NR_ppoll 73
++#define TARGET_NR_signalfd4 74
++#define TARGET_NR_vmsplice 75
++#define TARGET_NR_splice 76
++#define TARGET_NR_tee 77
++#define TARGET_NR_readlinkat 78
++#define TARGET_NR_fstatat64 79
++#define TARGET_NR_fstat64 80
++#define TARGET_NR_sync 81
++#define TARGET_NR_fsync 82
++#define TARGET_NR_fdatasync 83
++#define TARGET_NR_sync_file_range2 84
++#define TARGET_NR_timerfd_create 85
++#define TARGET_NR_timerfd_settime 86
++#define TARGET_NR_timerfd_gettime 87
++#define TARGET_NR_utimensat 88
++#define TARGET_NR_acct 89
++#define TARGET_NR_capget 90
++#define TARGET_NR_capset 91
++#define TARGET_NR_personality 92
++#define TARGET_NR_exit 93
++#define TARGET_NR_exit_group 94
++#define TARGET_NR_waitid 95
++#define TARGET_NR_set_tid_address 96
++#define TARGET_NR_unshare 97
++#define TARGET_NR_futex 98
++#define TARGET_NR_set_robust_list 99
++#define TARGET_NR_get_robust_list 100
++#define TARGET_NR_nanosleep 101
++#define TARGET_NR_getitimer 102
++#define TARGET_NR_setitimer 103
++#define TARGET_NR_kexec_load 104
++#define TARGET_NR_init_module 105
++#define TARGET_NR_delete_module 106
++#define TARGET_NR_timer_create 107
++#define TARGET_NR_timer_gettime 108
++#define TARGET_NR_timer_getoverrun 109
++#define TARGET_NR_timer_settime 110
++#define TARGET_NR_timer_delete 111
++#define TARGET_NR_clock_settime 112
++#define TARGET_NR_clock_gettime 113
++#define TARGET_NR_clock_getres 114
++#define TARGET_NR_clock_nanosleep 115
++#define TARGET_NR_syslog 116
++#define TARGET_NR_ptrace 117
++#define TARGET_NR_sched_setparam 118
++#define TARGET_NR_sched_setscheduler 119
++#define TARGET_NR_sched_getscheduler 120
++#define TARGET_NR_sched_getparam 121
++#define TARGET_NR_sched_setaffinity 122
++#define TARGET_NR_sched_getaffinity 123
++#define TARGET_NR_sched_yield 124
++#define TARGET_NR_sched_get_priority_max 125
++#define TARGET_NR_sched_get_priority_min 126
++#define TARGET_NR_sched_rr_get_interval 127
++#define TARGET_NR_restart_syscall 128
++#define TARGET_NR_kill 129
++#define TARGET_NR_tkill 130
++#define TARGET_NR_tgkill 131
++#define TARGET_NR_sigaltstack 132
++#define TARGET_NR_rt_sigsuspend 133
++#define TARGET_NR_rt_sigaction 134
++#define TARGET_NR_rt_sigprocmask 135
++#define TARGET_NR_rt_sigpending 136
++#define TARGET_NR_rt_sigtimedwait 137
++#define TARGET_NR_rt_sigqueueinfo 138
++#define TARGET_NR_rt_sigreturn 139
++#define TARGET_NR_setpriority 140
++#define TARGET_NR_getpriority 141
++#define TARGET_NR_reboot 142
++#define TARGET_NR_setregid 143
++#define TARGET_NR_setgid 144
++#define TARGET_NR_setreuid 145
++#define TARGET_NR_setuid 146
++#define TARGET_NR_setresuid 147
++#define TARGET_NR_getresuid 148
++#define TARGET_NR_setresgid 149
++#define TARGET_NR_getresgid 150
++#define TARGET_NR_setfsuid 151
++#define TARGET_NR_setfsgid 152
++#define TARGET_NR_times 153
++#define TARGET_NR_setpgid 154
++#define TARGET_NR_getpgid 155
++#define TARGET_NR_getsid 156
++#define TARGET_NR_setsid 157
++#define TARGET_NR_getgroups 158
++#define TARGET_NR_setgroups 159
++#define TARGET_NR_uname 160
++#define TARGET_NR_sethostname 161
++#define TARGET_NR_setdomainname 162
++#define TARGET_NR_getrlimit 163
++#define TARGET_NR_setrlimit 164
++#define TARGET_NR_getrusage 165
++#define TARGET_NR_umask 166
++#define TARGET_NR_prctl 167
++#define TARGET_NR_getcpu 168
++#define TARGET_NR_gettimeofday 169
++#define TARGET_NR_settimeofday 170
++#define TARGET_NR_adjtimex 171
++#define TARGET_NR_getpid 172
++#define TARGET_NR_getppid 173
++#define TARGET_NR_getuid 174
++#define TARGET_NR_geteuid 175
++#define TARGET_NR_getgid 176
++#define TARGET_NR_getegid 177
++#define TARGET_NR_gettid 178
++#define TARGET_NR_sysinfo 179
++#define TARGET_NR_mq_open 180
++#define TARGET_NR_mq_unlink 181
++#define TARGET_NR_mq_timedsend 182
++#define TARGET_NR_mq_timedreceive 183
++#define TARGET_NR_mq_notify 184
++#define TARGET_NR_mq_getsetattr 185
++#define TARGET_NR_msgget 186
++#define TARGET_NR_msgctl 187
++#define TARGET_NR_msgrcv 188
++#define TARGET_NR_msgsnd 189
++#define TARGET_NR_semget 190
++#define TARGET_NR_semctl 191
++#define TARGET_NR_semtimedop 192
++#define TARGET_NR_semop 193
++#define TARGET_NR_shmget 194
++#define TARGET_NR_shmctl 195
++#define TARGET_NR_shmat 196
++#define TARGET_NR_shmdt 197
++#define TARGET_NR_socket 198
++#define TARGET_NR_socketpair 199
++#define TARGET_NR_bind 200
++#define TARGET_NR_listen 201
++#define TARGET_NR_accept 202
++#define TARGET_NR_connect 203
++#define TARGET_NR_getsockname 204
++#define TARGET_NR_getpeername 205
++#define TARGET_NR_sendto 206
++#define TARGET_NR_recvfrom 207
++#define TARGET_NR_setsockopt 208
++#define TARGET_NR_getsockopt 209
++#define TARGET_NR_shutdown 210
++#define TARGET_NR_sendmsg 211
++#define TARGET_NR_recvmsg 212
++#define TARGET_NR_readahead 213
++#define TARGET_NR_brk 214
++#define TARGET_NR_munmap 215
++#define TARGET_NR_mremap 216
++#define TARGET_NR_add_key 217
++#define TARGET_NR_request_key 218
++#define TARGET_NR_keyctl 219
++#define TARGET_NR_clone 220
++#define TARGET_NR_execve 221
++#define TARGET_NR_mmap2 222
++#define TARGET_NR_fadvise64_64 223
++#define TARGET_NR_swapon 224
++#define TARGET_NR_swapoff 225
++#define TARGET_NR_mprotect 226
++#define TARGET_NR_msync 227
++#define TARGET_NR_mlock 228
++#define TARGET_NR_munlock 229
++#define TARGET_NR_mlockall 230
++#define TARGET_NR_munlockall 231
++#define TARGET_NR_mincore 232
++#define TARGET_NR_madvise 233
++#define TARGET_NR_remap_file_pages 234
++#define TARGET_NR_mbind 235
++#define TARGET_NR_get_mempolicy 236
++#define TARGET_NR_set_mempolicy 237
++#define TARGET_NR_migrate_pages 238
++#define TARGET_NR_move_pages 239
++#define TARGET_NR_rt_tgsigqueueinfo 240
++#define TARGET_NR_perf_event_open 241
++#define TARGET_NR_accept4 242
++#define TARGET_NR_recvmmsg 243
++
++/* arch_specific_syscall */
++#define TARGET_NR_arch_specific_syscall 244
++
++#define TARGET_NR_wait4 260
++#define TARGET_NR_prlimit64 261
++#define TARGET_NR_fanotify_init 262
++#define TARGET_NR_fanotify_mark 263
++#define TARGET_NR_name_to_handle_at         264
++#define TARGET_NR_open_by_handle_at         265
++#define TARGET_NR_clock_adjtime 266
++#define TARGET_NR_syncfs 267
++#define TARGET_NR_setns 268
++#define TARGET_NR_sendmmsg 269
++#define TARGET_NR_process_vm_readv 270
++#define TARGET_NR_process_vm_writev 271
++#define TARGET_NR_syscalls 272
++
++/* FIXME: Obsolete syscalls */
++#define TARGET_NR_open 1024
++#define TARGET_NR_link 1025
++#define TARGET_NR_unlink 1026
++#define TARGET_NR_mknod 1027
++#define TARGET_NR_chmod 1028
++#define TARGET_NR_chown 1029
++#define TARGET_NR_mkdir 1030
++#define TARGET_NR_rmdir 1031
++#define TARGET_NR_lchown 1032
++#define TARGET_NR_access 1033
++#define TARGET_NR_rename 1034
++#define TARGET_NR_readlink 1035
++#define TARGET_NR_symlink 1036
++#define TARGET_NR_utimes 1037
++#define TARGET_NR_stat64 1038
++#define TARGET_NR_lstat64 1039
++#define TARGET_NR_pipe 1040
++#define TARGET_NR_dup2 1041
++#define TARGET_NR_epoll_create 1042
++#define TARGET_NR_inotify_init 1043
++#define TARGET_NR_eventfd 1044
++#define TARGET_NR_signalfd 1045
++#define TARGET_NR_sendfile 1046
++#define TARGET_NR_ftruncate 1047
++#define TARGET_NR_truncate 1048
++#define TARGET_NR_stat 1049
++#define TARGET_NR_lstat 1050
++#define TARGET_NR_fstat 1051
++#define TARGET_NR_fcntl 1052
++#define TARGET_NR_fadvise64 1053
++#define TARGET_NR_newfstatat 1054
++#define TARGET_NR_fstatfs 1055
++#define TARGET_NR_statfs 1056
++#define TARGET_NR_lseek 1057
++#define TARGET_NR_mmap 1058
++#define TARGET_NR_alarm 1059
++#define TARGET_NR_getpgrp 1060
++#define TARGET_NR_pause 1061
++#define TARGET_NR_time 1062
++#define TARGET_NR_utime 1063
++#define TARGET_NR_creat 1064
++#define TARGET_NR_getdents 1065
++#define TARGET_NR_futimesat 1066
++#define TARGET_NR_select 1067
++#define TARGET_NR_poll 1068
++#define TARGET_NR_epoll_wait 1069
++#define TARGET_NR_ustat 1070
++#define TARGET_NR_vfork 1071
++#define TARGET_NR_oldwait4 1072
++#define TARGET_NR_recv 1073
++#define TARGET_NR_send 1074
++#define TARGET_NR_bdflush 1075
++#define TARGET_NR_umount 1076
++#define TARGET_NR_uselib 1077
++#define TARGET_NR__sysctl 1078
++#define TARGET_NR_fork 1079
+diff --git a/linux-user/unicore64/target_signal.h b/linux-user/unicore64/target_signal.h
+new file mode 100644
+index 0000000..be95053
+--- /dev/null
++++ b/linux-user/unicore64/target_signal.h
+@@ -0,0 +1,22 @@
++/*
++ * Copyright (C) 2012 Guan Xuetao
++ */
++#ifndef TARGET_SIGNAL_H
++#define TARGET_SIGNAL_H
++
++/* this struct defines a stack used during syscall handling */
++typedef struct target_sigaltstack {
++    abi_ulong ss_sp;
++    abi_ulong ss_flags;
++    abi_ulong ss_size;
++} target_stack_t;
++
++/*
++ * sigaltstack controls
++ */
++#define TARGET_SS_ONSTACK               1
++#define TARGET_SS_DISABLE               2
++
++#define get_sp_from_cpustate(cpustate)  (cpustate->regs[29])
++
++#endif /* TARGET_SIGNAL_H */
+diff --git a/linux-user/unicore64/termbits.h b/linux-user/unicore64/termbits.h
+new file mode 100644
+index 0000000..a5fcd64
+--- /dev/null
++++ b/linux-user/unicore64/termbits.h
+@@ -0,0 +1,2 @@
++/* NOTE: exactly the same as i386 */
++#include "../i386/termbits.h"
+diff --git a/target-unicore64/Makefile.objs b/target-unicore64/Makefile.objs
+new file mode 100644
+index 0000000..c3ee343
+--- /dev/null
++++ b/target-unicore64/Makefile.objs
+@@ -0,0 +1,3 @@
++obj-y += translate.o helper.o cpu.o
++
++$(obj)/op_helper.o: QEMU_CFLAGS += $(HELPER_CFLAGS)
+diff --git a/target-unicore64/cpu-qom.h b/target-unicore64/cpu-qom.h
+new file mode 100644
+index 0000000..41660c3
+--- /dev/null
++++ b/target-unicore64/cpu-qom.h
+@@ -0,0 +1,59 @@
++/*
++ * QEMU UniCore64 CPU
++ *
++ * Copyright (c) 2012 SUSE LINUX Products GmbH
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or (at your option) any
++ * later version. See the COPYING file in the top-level directory.
++ */
++#ifndef QEMU_UC64_CPU_QOM_H
++#define QEMU_UC64_CPU_QOM_H
++
++#include "qemu/cpu.h"
++#include "cpu.h"
++
++#define TYPE_UNICORE64_CPU "unicore64-cpu"
++
++#define UNICORE64_CPU_CLASS(klass) \
++    OBJECT_CLASS_CHECK(UniCore64CPUClass, (klass), TYPE_UNICORE64_CPU)
++#define UNICORE64_CPU(obj) \
++    OBJECT_CHECK(UniCore64CPU, (obj), TYPE_UNICORE64_CPU)
++#define UNICORE64_CPU_GET_CLASS(obj) \
++    OBJECT_GET_CLASS(UniCore64CPUClass, (obj), TYPE_UNICORE64_CPU)
++
++/**
++ * UniCore64CPUClass:
++ *
++ * A UniCore64 CPU model.
++ */
++typedef struct UniCore64CPUClass {
++    /*< private >*/
++    CPUClass parent_class;
++    /*< public >*/
++} UniCore64CPUClass;
++
++/**
++ * UniCore64CPU:
++ * @env: #CPUUniCore64State
++ *
++ * A UniCore64 CPU.
++ */
++typedef struct UniCore64CPU {
++    /*< private >*/
++    CPUState parent_obj;
++    /*< public >*/
++
++    CPUUniCore64State env;
++} UniCore64CPU;
++
++static inline UniCore64CPU *uc64_env_get_cpu(CPUUniCore64State *env)
++{
++    return UNICORE64_CPU(container_of(env, UniCore64CPU, env));
++}
++
++#define ENV_GET_CPU(e) CPU(uc64_env_get_cpu(e))
++
++
++#endif
+diff --git a/target-unicore64/cpu.c b/target-unicore64/cpu.c
+new file mode 100644
+index 0000000..e9eb83a
+--- /dev/null
++++ b/target-unicore64/cpu.c
+@@ -0,0 +1,83 @@
++/*
++ * QEMU UniCore64 CPU
++ *
++ * Copyright (c) 2012 Guan Xue-tao
++ */
++
++#include "cpu-qom.h"
++#include "qemu-common.h"
++
++/* CPU models */
++
++typedef struct UniCore64CPUInfo {
++    const char *name;
++    void (*instance_init)(Object *obj);
++} UniCore64CPUInfo;
++
++static void uc64_unicore3_cpu_initfn(Object *obj)
++{
++    UniCore64CPU *cpu = UNICORE64_CPU(obj);
++    CPUUniCore64State *env = &cpu->env;
++
++    env->cp0.c0_cpuid = 0x4d110863;
++    env->uncached_asr = ASR_MODE_PRIV;
++    env->regs[31] = 0x300000;
++}
++
++static void uc64_any_cpu_initfn(Object *obj)
++{
++    UniCore64CPU *cpu = UNICORE64_CPU(obj);
++    CPUUniCore64State *env = &cpu->env;
++
++    env->cp0.c0_cpuid = 0xffffffff;
++    env->uncached_asr = ASR_MODE_USER;
++    env->regs[31] = 0;
++}
++
++static const UniCore64CPUInfo uc64_cpus[] = {
++    { .name = "UniCore-III", .instance_init = uc64_unicore3_cpu_initfn },
++    { .name = "any",         .instance_init = uc64_any_cpu_initfn },
++};
++
++static void uc64_cpu_initfn(Object *obj)
++{
++    UniCore64CPU *cpu = UNICORE64_CPU(obj);
++    CPUUniCore64State *env = &cpu->env;
++
++    cpu_exec_init(env);
++    env->cpu_model_str = object_get_typename(obj);
++
++    tlb_flush(env, 1);
++}
++
++static void uc64_register_cpu_type(const UniCore64CPUInfo *info)
++{
++    TypeInfo type_info = {
++        .name = info->name,
++        .parent = TYPE_UNICORE64_CPU,
++        .instance_init = info->instance_init,
++    };
++
++    type_register_static(&type_info);
++}
++
++static const TypeInfo uc64_cpu_type_info = {
++    .name = TYPE_UNICORE64_CPU,
++    .parent = TYPE_CPU,
++    .instance_size = sizeof(UniCore64CPU),
++    .instance_init = uc64_cpu_initfn,
++    .abstract = true,
++    .class_size = sizeof(UniCore64CPUClass),
++};
++
++static void uc64_cpu_register_types(void)
++{
++    int i;
++
++    type_register_static(&uc64_cpu_type_info);
++    for (i = 0; i < ARRAY_SIZE(uc64_cpus); i++) {
++        uc64_register_cpu_type(&uc64_cpus[i]);
++    }
++}
++
++type_init(uc64_cpu_register_types)
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+new file mode 100644
+index 0000000..4e8f8c1
+--- /dev/null
++++ b/target-unicore64/cpu.h
+@@ -0,0 +1,132 @@
++/*
++ * UniCore64 virtual CPU header
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or (at your option) any
++ * later version. See the COPYING file in the top-level directory.
++ */
++#ifndef QEMU_UNICORE64_CPU_H
++#define QEMU_UNICORE64_CPU_H
++
++#define TARGET_LONG_BITS                64
++#define TARGET_PAGE_BITS                12
++
++#define TARGET_PHYS_ADDR_SPACE_BITS     64
++#define TARGET_VIRT_ADDR_SPACE_BITS     64
++
++#define ELF_MACHINE                     EM_UNICORE64
++
++#define CPUArchState                    struct CPUUniCore64State
++
++#include "config.h"
++#include "qemu-common.h"
++#include "cpu-defs.h"
++#include "softfloat.h"
++
++typedef struct CPUUniCore64State {
++    /* Regs for current mode.  */
++    uint64_t regs[32];
++    /* Frequently accessed ASR bits are stored separately for efficiently.
++       This contains all the other bits.  Use asr_{read,write} to access
++       the whole ASR.  */
++    uint64_t uncached_asr;
++    uint64_t uncached_afr;
++    uint64_t bsr;
++    uint64_t bfr;
++
++    /* System control coprocessor (cp0) */
++    struct {
++        uint64_t c0_cpuid;
++    } cp0;
++
++    CPU_COMMON
++
++} CPUUniCore64State;
++
++#define ASR_MODE_SELECT         (0x7)
++#define ASR_MODE_USER           (1 << 0)
++#define ASR_MODE_PRIV           (1 << 1)
++#define ASR_MODE_DEBUG          (1 << 2)
++#define ASR_INTR_SELECT         (0x3f << 5)
++#define AFR_V                   (1 << 0)
++#define AFR_C                   (1 << 1)
++#define AFR_Z                   (1 << 2)
++#define AFR_N                   (1 << 3)
++#define AFR_SZCV                (AFR_S | AFR_Z | AFR_C | AFR_V)
++
++/* Return the current ASR value.  */
++target_ulong cpu_asr_read(CPUUniCore64State *env1);
++/* Set the ASR.  Note that some bits of mask must be all-set or all-clear.  */
++void cpu_asr_write(CPUUniCore64State *env, target_ulong val, target_ulong msk);
++
++#define cpu_init                        uc64_cpu_init
++#define cpu_exec                        uc64_cpu_exec
++#define cpu_signal_handler              uc64_cpu_signal_handler
++#define cpu_handle_mmu_fault            uc64_cpu_handle_mmu_fault
++
++CPUUniCore64State *uc64_cpu_init(const char *cpu_model);
++int uc64_cpu_exec(CPUUniCore64State *s);
++int uc64_cpu_signal_handler(int host_signum, void *pinfo, void *puc);
++int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
++        int rw, int mmu_idx);
++
++void uc64_translate_init(void);
++void do_interrupt(CPUUniCore64State *);
++void switch_mode(CPUUniCore64State *, int);
++
++#define CPU_SAVE_VERSION       2
++
++/* MMU modes definitions */
++#define NB_MMU_MODES           2
++#define MMU_MODE0_SUFFIX       _kernel
++#define MMU_MODE1_SUFFIX       _user
++#define MMU_USER_IDX           1
++
++#include "cpu-all.h"
++#include "cpu-qom.h"
++#include "exec-all.h"
++
++static inline int cpu_mmu_index(CPUUniCore64State *env)
++{
++    return (env->uncached_asr & ASR_MODE_SELECT) == ASR_MODE_USER ? 1 : 0;
++}
++
++static inline void cpu_clone_regs(CPUUniCore64State *env, target_ulong newsp)
++{
++    if (newsp) {
++        env->regs[29] = newsp;
++    }
++    env->regs[0] = 0;
++}
++
++static inline void cpu_set_tls(CPUUniCore64State *env, target_ulong newtls)
++{
++    abort();
++}
++
++static inline void cpu_pc_from_tb(CPUUniCore64State *env, TranslationBlock *tb)
++{
++    env->regs[31] = tb->pc;
++}
++
++static inline void cpu_get_tb_cpu_state(CPUUniCore64State *env,
++        target_ulong *pc, target_ulong *cs_base, int *flags)
++{
++    *pc = env->regs[31];
++    *cs_base = 0;
++    *flags = 0;
++    if ((env->uncached_asr & ASR_MODE_SELECT) != ASR_MODE_USER) {
++        *flags |= (1 << 6);
++    }
++}
++
++static inline bool cpu_has_work(CPUUniCore64State *env)
++{
++    return env->interrupt_request &
++        (CPU_INTERRUPT_HARD | CPU_INTERRUPT_EXITTB);
++}
++
++#endif /* QEMU_UNICORE64_CPU_H */
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+new file mode 100644
+index 0000000..e2f822a
+--- /dev/null
++++ b/target-unicore64/helper.c
+@@ -0,0 +1,64 @@
++/*
++ * Copyright (C) 2012 Guan Xuetao
++ */
++
++#include "cpu.h"
++#include "gdbstub.h"
++#include "helper.h"
++#include "host-utils.h"
++
++#undef DEBUG_UC64
++
++#ifdef DEBUG_UC64
++#define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
++#else
++#define DPRINTF(fmt, ...) do {} while (0)
++#endif
++
++CPUUniCore64State *uc64_cpu_init(const char *cpu_model)
++{
++    UniCore64CPU *cpu;
++    CPUUniCore64State *env;
++    static int inited = 1;
++
++    if (object_class_by_name(cpu_model) == NULL) {
++        return NULL;
++    }
++    cpu = UNICORE64_CPU(object_new(cpu_model));
++    env = &cpu->env;
++
++    if (inited) {
++        inited = 0;
++        uc64_translate_init();
++    }
++
++    qemu_init_vcpu(env);
++    return env;
++}
++
++void helper_cp1_putc(target_ulong x)
++{
++    printf("%c", (unsigned char)x);        /* Output to stdout */
++    fflush(NULL);
++}
++
++#ifdef CONFIG_USER_ONLY
++void switch_mode(CPUUniCore64State *env, int mode)
++{
++    if (mode != ASR_MODE_USER) {
++        cpu_abort(env, "Tried to switch out of user mode\n");
++    }
++}
++
++void do_interrupt(CPUUniCore64State *env)
++{
++    cpu_abort(env, "NO interrupt in user mode\n");
++}
++
++int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
++                              int access_type, int mmu_idx)
++{
++    cpu_abort(env, "NO mmu fault in user mode\n");
++    return 1;
++}
++#endif
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+new file mode 100644
+index 0000000..1ff311f
+--- /dev/null
++++ b/target-unicore64/helper.h
+@@ -0,0 +1,13 @@
++/*
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or (at your option) any
++ * later version. See the COPYING file in the top-level directory.
++ */
++#include "def-helper.h"
++
++DEF_HELPER_1(cp1_putc, void, i64)
++
++#include "def-helper.h"
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+new file mode 100644
+index 0000000..d825498
+--- /dev/null
++++ b/target-unicore64/translate.c
+@@ -0,0 +1,86 @@
++/*
++ *  UniCore64 translation
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or (at your option) any
++ * later version. See the COPYING file in the top-level directory.
++ */
++#include <stdarg.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <string.h>
++#include <inttypes.h>
++
++#include "cpu.h"
++#include "disas.h"
++#include "tcg-op.h"
++#include "qemu-log.h"
++
++#include "helper.h"
++#define GEN_HELPER 1
++#include "helper.h"
++
++static TCGv_ptr cpu_env;
++static TCGv_i64 cpu_R[32];
++
++#include "gen-icount.h"
++
++static const char *regnames[] = {
++      "r00", "r01", "r02", "r03", "r04", "r05", "r06", "r07",
++      "r08", "r09", "r10", "r11", "r12", "r13", "r14", "r15",
++      "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
++      "r24", "r25", "r26", "r27", "r28", "r29", "r30", "pc" };
++
++/* initialize TCG globals.  */
++void uc64_translate_init(void)
++{
++    int i;
++
++    cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
++
++    for (i = 0; i < 32; i++) {
++        cpu_R[i] = tcg_global_mem_new_i64(TCG_AREG0,
++                           offsetof(CPUUniCore64State, regs[i]), regnames[i]);
++    }
++
++#define GEN_HELPER 2
++#include "helper.h"
++}
++
++/* generate intermediate code in gen_opc_buf and gen_opparam_buf for
++   basic block 'tb'. If search_pc is TRUE, also generate PC
++   information for each intermediate instruction. */
++static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
++        TranslationBlock *tb, int search_pc)
++{
++    int num_insns = 0;
++
++    gen_icount_start();
++    gen_icount_end(tb, num_insns);
++    abort();
++}
++
++void gen_intermediate_code(CPUUniCore64State *env, TranslationBlock *tb)
++{
++    gen_intermediate_code_internal(env, tb, 0);
++}
++
++void gen_intermediate_code_pc(CPUUniCore64State *env, TranslationBlock *tb)
++{
++    gen_intermediate_code_internal(env, tb, 1);
++}
++
++void cpu_dump_state(CPUUniCore64State *env, FILE *f,
++        fprintf_function cpu_fprintf, int flags)
++{
++    abort();
++}
++
++void restore_state_to_opc(CPUUniCore64State *env, TranslationBlock *tb,
++        int pc_pos)
++{
++    env->regs[31] = gen_opc_pc[pc_pos];
++}
+-- 
+1.7.9.5
+

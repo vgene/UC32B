@@ -1,0 +1,116 @@
+From fc69075e007e18ee29259a0d184e06b056cea4c9 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 20:17:13 +0800
+Subject: [PATCH 213/247] unicore64: Adjust definitions and calling for
+ cp0_itm and cp0_intc
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4.c               |    2 --
+ hw/puv4.h               |   19 -------------------
+ hw/unicore64/cp0_intc.c |    2 ++
+ target-unicore64/cpu.c  |    5 +++++
+ target-unicore64/cpu.h  |   14 +++++++++++++-
+ 5 files changed, 20 insertions(+), 22 deletions(-)
+
+diff --git a/hw/puv4.c b/hw/puv4.c
+index 5b21229..6894a01 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -57,8 +57,6 @@ static void puv4_init(ram_addr_t ram_size, const char *boot_device,
+         hw_error("Unable to find CPU definition\n");
+     }
+ 
+-    uc64_cp0_intc_init(env);
+-    uc64_cp0_itm_init(env);
+     puv4_board_init(env, ram_size);
+     puv4_load_kernel(kernel_filename);
+ }
+diff --git a/hw/puv4.h b/hw/puv4.h
+index 4eeeca0..a3cf35c 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -10,23 +10,4 @@
+ 
+ #define PUV4_REGS_OFFSET        (0x1000) /* 4K is reasonable */
+ 
+-/* Hardware interrupts */
+-#define UC64_INTR_NUM           (7)
+-#define UC64_INTR_SMP           (0)
+-#define UC64_INTR_LSU           (1)
+-#define UC64_INTR_ITM           (2)
+-#define UC64_INTR_OTM           (3)
+-#define UC64_INTR_DEV           (4)
+-#define UC64_INTR_PFM           (5)
+-
+-#define UC64_CP0_INTRTYPE_ITM   (1 << 7)
+-
+-#define UC64_CP0_INTC_BASE      (0xf10000000ULL) /* FAKE */
+-#define UC64_CP0_ITM_BASE       (0xf20000000ULL) /* FAKE */
+-
+-/* puv4_cp0_intc.c */
+-void uc64_cp0_intc_init(CPUUniCore64State *env);
+-/* puv4_cp0_itm.c */
+-void uc64_cp0_itm_init(CPUUniCore64State *env);
+-
+ #endif /* !QEMU_HW_PUV4_H */
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index f1999eb..d11f062 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -14,6 +14,8 @@
+ #define DEBUG_PUV4
+ #include "../puv4.h"
+ 
++#define UC64_CP0_INTRTYPE_ITM   (1 << 7)
++
+ static qemu_irq *uc64_cpu_intc;
+ 
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
+diff --git a/target-unicore64/cpu.c b/target-unicore64/cpu.c
+index 7a41595..29ea7c0 100644
+--- a/target-unicore64/cpu.c
++++ b/target-unicore64/cpu.c
+@@ -23,6 +23,11 @@ static void uc64_unicore3_cpu_initfn(Object *obj)
+     env->cp0.c0_cachetype = 0x0519a19a;
+     env->uncached_asr = ASR_MODE_PRIV;
+     env->regs[31] = 0x03000000;
++
++#ifndef CONFIG_USER_ONLY
++    uc64_cp0_intc_init(env);
++    uc64_cp0_itm_init(env);
++#endif
+ }
+ 
+ static void uc64_any_cpu_initfn(Object *obj)
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 34665a4..fbe264d 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -175,10 +175,22 @@ static inline bool cpu_has_work(CPUUniCore64State *env)
+         (CPU_INTERRUPT_HARD | CPU_INTERRUPT_EXITTB);
+ }
+ 
+-/*puv4_cp0_itm.c*/
++/* Hardware interrupts */
++#define UC64_INTR_NUM           (7)
++#define UC64_INTR_SMP           (0)
++#define UC64_INTR_LSU           (1)
++#define UC64_INTR_ITM           (2)
++#define UC64_INTR_OTM           (3)
++#define UC64_INTR_DEV           (4)
++#define UC64_INTR_PFM           (5)
++
++/* cp0_itm.c */
++void uc64_cp0_itm_init(CPUUniCore64State *env);
+ uint64_t uc64_cp0_itimer_get_delta(void);
+ void uc64_cp0_itimer_set_count(uint64_t value);
+ 
++/* cp0_intc.c */
++void uc64_cp0_intc_init(CPUUniCore64State *env);
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int);
+ void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int);
+ 
+-- 
+1.7.9.5
+

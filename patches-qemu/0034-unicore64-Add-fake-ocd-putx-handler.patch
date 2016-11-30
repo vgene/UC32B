@@ -1,0 +1,87 @@
+From 1a4520750a6493ab0af1faa92d6c793c68034cbd Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 7 Aug 2012 22:49:51 +0800
+Subject: [PATCH 034/247] unicore64: Add fake ocd putx handler
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |    8 +++++++-
+ target-unicore64/helper.h    |    1 +
+ target-unicore64/translate.c |   27 ++++++++++++++++++---------
+ 3 files changed, 26 insertions(+), 10 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index e2f822a..c2688d5 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -38,7 +38,13 @@ CPUUniCore64State *uc64_cpu_init(const char *cpu_model)
+ 
+ void helper_cp1_putc(target_ulong x)
+ {
+-    printf("%c", (unsigned char)x);        /* Output to stdout */
++    printf("%c", (unsigned char)x); /* Output to stdout */
++    fflush(NULL);
++}
++
++void helper_cp1_putx(target_ulong x)
++{
++    printf("--%16" PRIx64 "--", x); /* Output to stdout */
+     fflush(NULL);
+ }
+ 
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 1ff311f..4cb2943 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -9,5 +9,6 @@
+ #include "def-helper.h"
+ 
+ DEF_HELPER_1(cp1_putc, void, i64)
++DEF_HELPER_1(cp1_putx, void, i64)
+ 
+ #include "def-helper.h"
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 64f6308..7c8a34f 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -160,19 +160,28 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+     switch (UCOP_CPNUM) {
+     case 1: /* fake ocd */
+-        /* movc p1.cn, rs1, #0 */
+-        if ((insn & 0xfe0007ff) == 0xc0000000) {
+-            if (UCOP_REG_D) { /* cn == 0 */
+-                ILLEGAL_INSN;
+-            }
+-            if (UCOP_REG_S1 == 31) {
+-                ILLEGAL_INSN;
+-            }
++        /* ONLY handle movc p1.cd, rs1, #0 */
++        if ((insn & 0xfe0007ff) != 0xc0000000) {
++            ILLEGAL_INSN;
++        }
++        if (UCOP_REG_S1 == 31) {
++            ILLEGAL_INSN;
++        }
++
++        switch (UCOP_REG_D) { /* REG_D is cd */
++        case 0: /* movc p1.c0, rs1, #0 */
+             tmp = tcg_temp_new_i64();
+             tcg_gen_mov_i64(tmp, cpu_R[UCOP_REG_S1]);
+             gen_helper_cp1_putc(tmp);
+             tcg_temp_free(tmp);
+-        } else {
++            break;
++        case 1: /* movc p1.c1, rs1, #0 */
++            tmp = tcg_temp_new_i64();
++            tcg_gen_mov_i64(tmp, cpu_R[UCOP_REG_S1]);
++            gen_helper_cp1_putx(tmp);
++            tcg_temp_free(tmp);
++            break;
++        default:
+             ILLEGAL_INSN;
+         }
+         break;
+-- 
+1.7.9.5
+

@@ -1,0 +1,102 @@
+From 5d089a21e1f0cba66a17924d448045a8f24c66d4 Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Thu, 6 Sep 2012 11:37:27 +0800
+Subject: [PATCH 178/247] unicore64: Add IS_USER for user mode
+
+ Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   37 ++++++++++++++++++++++++++-----------
+ 1 file changed, 26 insertions(+), 11 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index c3a7312..f428db1 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -91,8 +91,15 @@ typedef struct DisasContext {
+     struct TranslationBlock *dc_tb;
+     int dc_condinsn; /* If the insn has conditional test */
+     int dc_condlabel; /* Label for next instruction */
++    int dc_user;
+ } DisasContext;
+ 
++#ifndef CONFIG_USER_ONLY
++#define IS_USER(s)      (s->dc_user)
++#else
++#define IS_USER(s)      1
++#endif
++
+ #define gen_load_cpu_field(t_op_64, name)               \
+     tcg_gen_ld_i64(t_op_64, cpu_env, offsetof(CPUUniCore64State, name))
+ 
+@@ -933,25 +940,25 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             ILLEGAL_INSN(true);
+             break;
+         case 1:
+-            tcg_gen_qemu_ld64(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld64(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 2:
+-            tcg_gen_qemu_ld16u(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld16u(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 3:
+-            tcg_gen_qemu_ld16s(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld16s(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 4:
+-            tcg_gen_qemu_ld8u(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld8u(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 5:
+-            tcg_gen_qemu_ld8s(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld8s(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 6:
+-            tcg_gen_qemu_ld32u(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld32u(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 7:
+-            tcg_gen_qemu_ld32s(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld32s(t_rd_64, t_addr, IS_USER(s));
+             break;
+         }
+     } else { /* store */
+@@ -963,16 +970,16 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+         switch (UCOP_LDST_BHD) {
+         case 1:
+-            tcg_gen_qemu_st64(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_st64(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 2:
+-            tcg_gen_qemu_st16(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_st16(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 4:
+-            tcg_gen_qemu_st8(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_st8(t_rd_64, t_addr, IS_USER(s));
+             break;
+         case 6:
+-            tcg_gen_qemu_st32(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_st32(t_rd_64, t_addr, IS_USER(s));
+             break;
+         default:
+             ILLEGAL_INSN(true);
+@@ -1380,6 +1387,14 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+         max_insns = CF_COUNT_MASK;
+     }
+ 
++#ifndef CONFIG_USER_ONLY
++    if ((env->uncached_asr & ASR_MODE_SELECT) == ASR_MODE_USER) {
++        dc->dc_user = 1;
++    } else {
++        dc->dc_user = 0;
++    }
++#endif
++
+     gen_icount_start();
+     do {
+         UNHANDLED_FLOW(unlikely(!QTAILQ_EMPTY(&env->breakpoints)));
+-- 
+1.7.9.5
+

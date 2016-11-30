@@ -1,0 +1,92 @@
+From 7f23c7322dacb3ad320b0c86d30bbaa74b108064 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 18:33:33 +0800
+Subject: [PATCH 134/247] unicore64: Change c4_* name to make more sense
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h       |    4 ++--
+ target-unicore64/helper.c    |    4 ++--
+ target-unicore64/softmmu.c   |    6 +++---
+ target-unicore64/translate.c |    4 ++--
+ 4 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index f952dae..bcf78db 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -61,8 +61,8 @@ typedef struct CPUUniCore64State {
+         uint64_t c2_base; /* MMU translation table base.  */
+         uint64_t c3_ifaultstatus; /* Instruction fault status register.  */
+         uint64_t c3_dfaultstatus; /* Data fault status register.  */
+-        uint64_t c4_faultaddr; /* Fault address registers.  */
+-        uint64_t c4_itrapaddr; /* Exception address register.*/
++        uint64_t c4_dtrapaddr; /* Fault address registers.  */
++        uint64_t c4_epc; /* Exception address register.*/
+         uint64_t c8_mrar[16]; /* Memory region configuration registers */
+         uint64_t c9_excpbase; /* Exception base register. */
+         uint64_t c10_intr[11]; /* Timer interrupt and information registers */
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 68ea15a..52f481b 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -263,9 +263,9 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+     case 4:
+         switch (cop) {
+         case 0:
+-            return env->cp0.c4_faultaddr;
++            return env->cp0.c4_dtrapaddr;
+         case 1:
+-            return env->cp0.c4_itrapaddr;
++            return env->cp0.c4_epc;
+         }
+         break;
+     case 8:
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index d7968d0..a711502 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -132,7 +132,7 @@ void do_interrupt(CPUUniCore64State *env)
+     env->uncached_asr = (env->uncached_asr & ~ASR_MODE_SELECT) | ASR_MODE_PRIV;
+     env->uncached_asr |= ASR_INTR_SELECT;
+     /* the PC already points to the proper instruction. */
+-    env->cp0.c4_itrapaddr = env->regs[31];
++    env->cp0.c4_epc = env->regs[31];
+     env->regs[31] = addr;
+     env->interrupt_request |= CPU_INTERRUPT_EXITTB;
+ }
+@@ -208,13 +208,13 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+ 
+ do_fault:
+     if (code) {
+-        env->cp0.c4_itrapaddr = address;
++        env->cp0.c4_epc = address;
+         if (access_type == 2) {
+             env->cp0.c3_ifaultstatus = code;
+             env->exception_index = UC64_EXCP_ITRAP;
+         } else {
+             env->cp0.c3_dfaultstatus = code;
+-            env->cp0.c4_faultaddr = address;
++            env->cp0.c4_dtrapaddr = address;
+             env->exception_index = UC64_EXCP_DTRAP;
+         }
+     }
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 9454363..3dc3cab 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1157,9 +1157,9 @@ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+                 s->dc_jmp = DISAS_JUMP;
+                 break;
+             case 0x00c00000:
+-                /* ERET instruction: r31 <- p0.c4_itrapaddr, ASR <- BSR */
++                /* ERET instruction: r31 <- p0.c4_epc, ASR <- BSR */
+                 tmp = tcg_temp_new_i64();
+-                gen_load_cpu_field(cpu_R[31], cp0.c4_itrapaddr);
++                gen_load_cpu_field(cpu_R[31], cp0.c4_epc);
+                 gen_load_cpu_field(tmp, bsr);
+                 gen_helper_asr_write(tmp);
+                 gen_load_cpu_field(tmp, bfr);
+-- 
+1.7.9.5
+

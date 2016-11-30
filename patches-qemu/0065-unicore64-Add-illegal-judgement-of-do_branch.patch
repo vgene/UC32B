@@ -1,0 +1,39 @@
+From e8b0f6e79cd22e7247875a1db903ef1f3bc40e3c Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 9 Aug 2012 22:03:42 +0800
+Subject: [PATCH 065/247] unicore64: Add illegal judgement of do_branch
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index def65ae..3000cc9 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -641,15 +641,17 @@ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             tcg_gen_mov_i64(cpu_R[31], cpu_R[UCOP_REG_S1]);
+             s->dc_jmp = DISAS_JUMP;
+         } else { /* RETURN and ERET */
+-            ILLEGAL_INSN(insn & 0x003fffff); /* other bits must be 0 */
++            ILLEGAL_INSN(UCOP_SET(28));
+ 
+-            if ((insn & 0x00c00000) == 0x00800000) {
++            switch (insn & 0x00ffffff) {
++            case 0x00800000:
+                 /* RETURN instruction: r31 <- r30 */
+                 tcg_gen_mov_i64(cpu_R[31], cpu_R[30]);
+                 s->dc_jmp = DISAS_JUMP;
+-            }
+-            if ((insn & 0x00c00000) == 0x00c00000) {
++                break;
++            case 0x00c00000:
+                 /* ERET instruction: r31 <- r30, ASR <- BSR */
++            default:
+                 ILLEGAL_INSN(true);
+             }
+         }
+-- 
+1.7.9.5
+

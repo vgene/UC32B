@@ -1,0 +1,69 @@
+From 0420a6471daf740d0a053f89eedcf15246fcbe50 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 16:48:56 +0800
+Subject: [PATCH 136/247] unicore64: Add search_pc handling
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 3dc3cab..ba0d891 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1335,6 +1335,7 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+ {
+     DisasContext dc1, *dc = &dc1;
+     target_ulong pc_start;
++    int j, lj;
+     int num_insns;
+     int max_insns;
+ 
+@@ -1346,6 +1347,7 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+     dc->dc_singlestep = env->singlestep_enabled;
+     dc->dc_condinsn = false;
+ 
++    lj = -1;
+     num_insns = 0;
+     max_insns = tb->cflags & CF_COUNT_MASK;
+     if (max_insns == 0) {
+@@ -1355,9 +1357,21 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+     gen_icount_start();
+     do {
+         UNHANDLED_FLOW(unlikely(!QTAILQ_EMPTY(&env->breakpoints)));
+-        UNHANDLED_FLOW(search_pc);
+         UNHANDLED_FLOW(tb->cflags & CF_LAST_IO);
+ 
++        if (search_pc) {
++            j = gen_opc_ptr - gen_opc_buf;
++            if (lj < j) {
++                lj++;
++                while (lj < j) {
++                    gen_opc_instr_start[lj++] = 0;
++                }
++            }
++            gen_opc_pc[lj] = dc->dc_pc;
++            gen_opc_instr_start[lj] = 1;
++            gen_opc_icount[lj] = num_insns;
++        }
++
+         disas_uc64_insn(env, dc);
+ 
+         dc->dc_pc += 4;
+@@ -1427,7 +1441,11 @@ done_disas_loop:
+     *gen_opc_ptr = INDEX_op_end;
+ 
+     if (search_pc) {
+-        UNHANDLED_FLOW(true);
++        j = gen_opc_ptr - gen_opc_buf;
++        lj++;
++        while (lj <= j) {
++            gen_opc_instr_start[lj++] = 0;
++        }
+     } else {
+         tb->size = dc->dc_pc - pc_start;
+         tb->icount = num_insns;
+-- 
+1.7.9.5
+

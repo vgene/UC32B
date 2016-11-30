@@ -1,0 +1,158 @@
+From 33cf6aff33ae7dea331d5c64dad3eb575a8f3aed Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 25 May 2012 17:46:09 +0800
+Subject: [PATCH 012/247] unicore32-softmmu: Add puv3 dma support
+
+This patch adds puv3 dma (Direct Memory Access) support,
+include dma device simulation for kernel booting.
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/Makefile.objs |    1 +
+ hw/puv3.c        |    1 +
+ hw/puv3_dma.c    |  109 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 111 insertions(+)
+ create mode 100644 hw/puv3_dma.c
+
+diff --git a/hw/Makefile.objs b/hw/Makefile.objs
+index e2a39d6..6df346a 100644
+--- a/hw/Makefile.objs
++++ b/hw/Makefile.objs
+@@ -71,6 +71,7 @@ hw-obj-$(CONFIG_PUV3) += puv3_intc.o
+ hw-obj-$(CONFIG_PUV3) += puv3_ost.o
+ hw-obj-$(CONFIG_PUV3) += puv3_gpio.o
+ hw-obj-$(CONFIG_PUV3) += puv3_pm.o
++hw-obj-$(CONFIG_PUV3) += puv3_dma.o
+ 
+ # PCI watchdog devices
+ hw-obj-$(CONFIG_PCI) += wdt_i6300esb.o
+diff --git a/hw/puv3.c b/hw/puv3.c
+index 3a14b27..9acfc5a 100644
+--- a/hw/puv3.c
++++ b/hw/puv3.c
+@@ -49,6 +49,7 @@ static void puv3_soc_init(CPUUniCore32State *env)
+ 
+     /* Initialize minimal necessary devices for kernel booting */
+     sysbus_create_simple("puv3_pm", PUV3_PM_BASE, NULL);
++    sysbus_create_simple("puv3_dma", PUV3_DMA_BASE, NULL);
+     sysbus_create_simple("puv3_ost", PUV3_OST_BASE, irqs[PUV3_IRQS_OST0]);
+     sysbus_create_varargs("puv3_gpio", PUV3_GPIO_BASE,
+             irqs[PUV3_IRQS_GPIOLOW0], irqs[PUV3_IRQS_GPIOLOW1],
+diff --git a/hw/puv3_dma.c b/hw/puv3_dma.c
+new file mode 100644
+index 0000000..bd1f43e
+--- /dev/null
++++ b/hw/puv3_dma.c
+@@ -0,0 +1,109 @@
++/*
++ * DMA device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2010-2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "hw.h"
++#include "sysbus.h"
++
++#undef DEBUG_PUV3
++#include "puv3.h"
++
++#define PUV3_DMA_CH_NR          (6)
++#define PUV3_DMA_CH_MASK        (0xff)
++#define PUV3_DMA_CH(offset)     ((offset) >> 8)
++
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    uint32_t reg_CFG[PUV3_DMA_CH_NR];
++} PUV3DMAState;
++
++static uint64_t puv3_dma_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    PUV3DMAState *s = opaque;
++    uint32_t ret;
++
++    assert(PUV3_DMA_CH(offset) < PUV3_DMA_CH_NR);
++
++    switch (offset & PUV3_DMA_CH_MASK) {
++    case 0x10:
++        ret = s->reg_CFG[PUV3_DMA_CH(offset)];
++        break;
++    default:
++        DPRINTF("Bad offset 0x%x\n", offset);
++    }
++    DPRINTF("offset 0x%x, value 0x%x\n", offset, ret);
++
++    return ret;
++}
++
++static void puv3_dma_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    PUV3DMAState *s = opaque;
++
++    assert(PUV3_DMA_CH(offset) < PUV3_DMA_CH_NR);
++
++    switch (offset & PUV3_DMA_CH_MASK) {
++    case 0x10:
++        s->reg_CFG[PUV3_DMA_CH(offset)] = value;
++        break;
++    default:
++        DPRINTF("Bad offset 0x%x\n", offset);
++    }
++    DPRINTF("offset 0x%x, value 0x%x\n", offset, value);
++}
++
++static const MemoryRegionOps puv3_dma_ops = {
++    .read = puv3_dma_read,
++    .write = puv3_dma_write,
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static int puv3_dma_init(SysBusDevice *dev)
++{
++    PUV3DMAState *s = FROM_SYSBUS(PUV3DMAState, dev);
++    int i;
++
++    for (i = 0; i < PUV3_DMA_CH_NR; i++) {
++        s->reg_CFG[i] = 0x0;
++    }
++
++    memory_region_init_io(&s->iomem, &puv3_dma_ops, s, "puv3_dma",
++            PUV3_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void puv3_dma_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = puv3_dma_init;
++}
++
++static const TypeInfo puv3_dma_info = {
++    .name = "puv3_dma",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(PUV3DMAState),
++    .class_init = puv3_dma_class_init,
++};
++
++static void puv3_dma_register_type(void)
++{
++    type_register_static(&puv3_dma_info);
++}
++
++type_init(puv3_dma_register_type)
+-- 
+1.7.9.5
+

@@ -1,0 +1,55 @@
+From ed153e26aac6b6ad17f5551b3031566863b65168 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 20:23:48 +0800
+Subject: [PATCH 214/247] unicore64: Use trace mechanism to replace DPRINTF in
+ cp0_intc
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/unicore64/cp0_intc.c |    7 +++----
+ trace-events            |    1 +
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index d11f062..ee84dbe 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -9,11 +9,9 @@
+  * See the COPYING file in the top-level directory.
+  */
+ #include "cpu.h"
++#include "trace.h"
+ #include "../irq.h"
+ 
+-#define DEBUG_PUV4
+-#include "../puv4.h"
+-
+ #define UC64_CP0_INTRTYPE_ITM   (1 << 7)
+ 
+ static qemu_irq *uc64_cpu_intc;
+@@ -41,8 +39,9 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+ {
+     CPUUniCore64State *env = (CPUUniCore64State *)opaque;
+ 
++    trace_uc64_intc_cpu_handler(irq, level);
++
+     if (irq != UC64_INTR_ITM) { /* ITIMER */
+-        DPRINTF("irq 0x%x, level 0x%x\n", irq, level);
+         abort();
+     } else {
+         irq = UC64_CP0_INTRTYPE_ITM;
+diff --git a/trace-events b/trace-events
+index 2a48a5f..9a0b48c 100644
+--- a/trace-events
++++ b/trace-events
+@@ -896,6 +896,7 @@ uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va
+ uc64_guestos_output(const char *str) ": %s"
+ uc64_mmu_tlb_ops(const char *str) ": %s"
+ uc64_mmu_cache_ops(const char *str) ": %s"
++uc64_intc_cpu_handler(int irq, int level) ": irq 0x%x, level 0x%x"
+ 
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+-- 
+1.7.9.5
+

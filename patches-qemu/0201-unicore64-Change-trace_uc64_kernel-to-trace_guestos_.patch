@@ -1,0 +1,41 @@
+From 769ed2c5cfdf3bd5b56e83c966a70c8ad468026b Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 31 Dec 2012 14:04:44 +0800
+Subject: [PATCH 201/247] unicore64: Change trace_uc64_kernel to
+ trace_guestos_output
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    2 +-
+ trace-events              |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index ac7a979..2e592f5 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -68,7 +68,7 @@ static void putc_on_screen(unsigned char ch)
+         case '\n':
+             wprintw(localwin, "\n", ch);
+             *p++ = '\0';
+-            trace_uc64_kernel(buf);
++            trace_uc64_guestos_output(buf);
+             p = buf;
+             break;
+         case '\r':
+diff --git a/trace-events b/trace-events
+index 7474c4e..194b9e2 100644
+--- a/trace-events
++++ b/trace-events
+@@ -892,7 +892,7 @@ uc64_cpu_handle_mmu_fault(uint64_t va, uint64_t pa, uint64_t pc) ": va %16." PRI
+ uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRIx64 " retaddr %16." PRIx64
+ uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va %16." PRIx64 " desc %16." PRIx64 " code %d is_user %d"
+ # target-unicore64/helper.c
+-uc64_kernel(const char *str) ": %s"
++uc64_guestos_output(const char *str) ": %s"
+ 
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+-- 
+1.7.9.5
+

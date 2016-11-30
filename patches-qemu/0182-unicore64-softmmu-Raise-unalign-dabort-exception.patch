@@ -1,0 +1,36 @@
+From ff9717f067a3884acb26c73cd1277ddbafc96d3d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 14 Sep 2012 16:39:49 +0800
+Subject: [PATCH 182/247] unicore64-softmmu: Raise unalign dabort exception
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index a6fd8bc..9b0377b 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -32,6 +32,17 @@
+ 
+ #define MMUSUFFIX _mmu
+ 
++/* Unaligned data must raise the data-abort in UniCore64 */
++#define ALIGNED_ONLY
++static void do_unaligned_access(target_ulong addr, int is_write,
++                                int is_user, uintptr_t retaddr)
++{
++    env->cp0.c3_dfaultstatus = 0x09;
++    env->cp0.c4_dtrapaddr = addr;
++    env->exception_index = UC64_EXCP_DTRAP;
++    DPRINTF("va %" PRIx64 " retaddr %" PRIx64 "\n", addr, retaddr);
++}
++
+ #define SHIFT 0
+ #include "softmmu_template.h"
+ 
+-- 
+1.7.9.5
+

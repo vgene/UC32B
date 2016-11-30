@@ -1,0 +1,88 @@
+From ca5b53b170be27fefe470e693a14d7c49075af77 Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 22:18:34 +0800
+Subject: [PATCH 097/247] unicore64: Add exception support
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ linux-user/main.c          |    3 ++-
+ target-unicore64/softmmu.c |   41 ++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 42 insertions(+), 2 deletions(-)
+
+diff --git a/linux-user/main.c b/linux-user/main.c
+index ff696cd..cd7511c 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -1020,7 +1020,8 @@ void cpu_loop(CPUUniCore64State *env)
+                     env->regs[0], env->regs[1], env->regs[2],
+                     env->regs[3], env->regs[4], env->regs[5], 0, 0);
+             break;
+-        case EXCP_INTERRUPT:
++        case UC64_EXCP_DTRAP:
++        case UC64_EXCP_ITRAP:
+             goto error; /* FIXME */
+             break;
+         default:
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 6bcf57e..82a8b91 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -30,6 +30,14 @@
+ #define SHIFT 3
+ #include "softmmu_template.h"
+ 
++#undef DEBUG_UC64
++
++#ifdef DEBUG_UC64
++#define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
++#else
++#define DPRINTF(fmt, ...) do {} while (0)
++#endif
++
+ void tlb_fill(CPUUniCore64State *env, target_ulong addr, int is_write,
+         int mmu_idx, uintptr_t retaddr)
+ {
+@@ -43,7 +51,38 @@ void switch_mode(CPUUniCore64State *env, int mode)
+ 
+ void do_interrupt(CPUUniCore64State *env)
+ {
+-    cpu_abort(env, "%s not supported yet\n", __func__);
++    uint64_t addr;
++    int new_mode;
++
++    switch (env->exception_index) {
++    case UC64_EXCP_PRIV:
++        new_mode = ASR_MODE_PRIV;
++        addr = UC64_EXCP_PRIV;
++        break;
++    case UC64_EXCP_ITRAP:
++        DPRINTF("itrap happend at %x\n", env->regs[31]);
++        new_mode = ASR_MODE_PRIV;
++        addr = UC64_EXCP_ITRAP;
++        break;
++    case UC64_EXCP_DTRAP:
++        DPRINTF("dtrap happend at %x\n", env->regs[31]);
++        new_mode = ASR_MODE_PRIV;
++        addr = UC64_EXCP_DTRAP;
++        break;
++    case UC64_EXCP_INTR:
++    default:
++        cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
++        return;
++    }
++    /* Get exception virtual base address , only least 39 bits available */
++    addr += (env->cp0.c9_excpaddr & 0x7fffffffffULL);
++
++    env->uncached_asr = (env->uncached_asr & ~ASR_MODE_SELECT) | new_mode;
++    env->uncached_asr |= ASR_INTR_SELECT;
++    /* the PC already points to the proper instruction. */
++    env->regs[30] = env->regs[31];
++    env->regs[31] = addr;
++    env->interrupt_request |= CPU_INTERRUPT_EXITTB;
+ }
+ 
+ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+-- 
+1.7.9.5
+

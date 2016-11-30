@@ -1,0 +1,50 @@
+From ab42e64796925eb6157114f4e72722c3263f1472 Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 15:02:21 +0800
+Subject: [PATCH 098/247] unicore64-softmmu: add tlb_fill()
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |   24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 82a8b91..91b3cf3 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -38,10 +38,30 @@
+ #define DPRINTF(fmt, ...) do {} while (0)
+ #endif
+ 
+-void tlb_fill(CPUUniCore64State *env, target_ulong addr, int is_write,
++void tlb_fill(CPUUniCore64State *env1, target_ulong addr, int is_write,
+         int mmu_idx, uintptr_t retaddr)
+ {
+-    cpu_abort(env, "%s not supported yet\n", __func__);
++    TranslationBlock *tb;
++    CPUUniCore64State *saved_env;
++    int ret;
++
++    saved_env = env;
++    env = env1;
++
++    ret = uc64_cpu_handle_mmu_fault(env, addr, is_write, mmu_idx);
++    if (unlikely(ret)) {
++        if (retaddr) {
++            /* now we have a real cpu fault */
++            tb = tb_find_pc(retaddr);
++            if (tb) {
++                /* the PC is inside the translated code.
++                   It means that we have a virtual CPU fault */
++                cpu_restore_state(tb, env, retaddr);
++            }
++        }
++        cpu_loop_exit(env);
++    }
++    env = saved_env;
+ }
+ 
+ void switch_mode(CPUUniCore64State *env, int mode)
+-- 
+1.7.9.5
+

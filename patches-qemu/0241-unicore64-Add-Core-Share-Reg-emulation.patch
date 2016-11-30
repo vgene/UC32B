@@ -1,0 +1,169 @@
+From 83d60bcf2e57323b105d343486f63711659475e7 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 18:44:58 +0800
+Subject: [PATCH 241/247] unicore64: Add Core Share Reg emulation
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/puv4.c                  |    1 +
+ hw/puv4.h                  |    1 +
+ hw/puv4_csr.c              |   93 ++++++++++++++++++++++++++++++++++++++++++++
+ hw/unicore64/Makefile.objs |    1 +
+ target-unicore64/softmmu.c |    6 +++
+ 5 files changed, 102 insertions(+)
+ create mode 100644 hw/puv4_csr.c
+
+diff --git a/hw/puv4.c b/hw/puv4.c
+index 271ed07..3a051e8 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -22,6 +22,7 @@ static void puv4_soc_init(CPUUniCore64State *env)
+     int i;
+ 
+     sysbus_create_varargs("uc64_io_ctl", UC64_IO_CTL_BASE);
++    sysbus_create_varargs("uc64_csr", UC64_CSR_BASE);
+     sysbus_create_simple("uc64_ost", UC64_OST_BASE,
+             uc64_cpu0_intc[UC64_INTR_OTM]);
+     dev = sysbus_create_simple("uc64_soc_intc", PUV4_INTC_BASE,
+diff --git a/hw/puv4.h b/hw/puv4.h
+index 51dd835..dd84068 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -13,6 +13,7 @@
+ #define PUV4_IRQS_PS2_KBD       (22)
+ #define PUV4_INTC_BASE          (0xee600000)
+ #define PUV4_PS2_BASE           (0xef100000)
++#define UC64_CSR_BASE           (0xc1680000)
+ #define UC64_IO_CTL_BASE        (0xff6100000ULL) /* FAKE */
+ #define UC64_OST_BASE           (0xfee800000ULL) /* FAKE */
+ 
+diff --git a/hw/puv4_csr.c b/hw/puv4_csr.c
+new file mode 100644
+index 0000000..071e810
+--- /dev/null
++++ b/hw/puv4_csr.c
+@@ -0,0 +1,93 @@
++#include "cpu.h"
++#include "sysbus.h"
++
++#undef DEBUG_PUV4
++#include "puv4.h"
++
++/* Core Share Reg */
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    uint32_t csr_core0_r1; /* Core0 Reg 1 */
++    uint32_t csr_core1_r1; /* Core1 Reg 1 */
++    uint32_t csr_core0_r2; /* Core0 Reg 2 */
++    uint32_t csr_core1_r2; /* Core1 Reg 2 */
++} UC64CSRState;
++
++static uint64_t uc64_csr_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    UC64CSRState *s = opaque;
++
++    if (offset == 0x00) {
++        return (uint64_t)s->csr_core0_r1;
++    } else if (offset == 0x08) {
++        return (uint64_t)s->csr_core1_r1;
++    } else if (offset == 0x10) {
++        return (uint64_t)s->csr_core0_r2;
++    } else if (offset == 0x18) {
++        return (uint64_t)s->csr_core1_r2;
++    } else {
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++    return 0;
++}
++
++static void uc64_csr_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    UC64CSRState *s = opaque;
++    if (offset == 0x00) {
++        s->csr_core0_r1 = value;
++    } else if (offset == 0x08) {
++        s->csr_core1_r1 = value;
++    } else if (offset == 0x10) {
++        s->csr_core0_r2 = value;
++    } else if (offset == 0x18) {
++        s->csr_core1_r2 = value;
++    } else {
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++}
++
++static const MemoryRegionOps uc64_csr_ops = {
++    .read = uc64_csr_read,
++    .write = uc64_csr_write,
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static int uc64_csr_init(SysBusDevice *dev)
++{
++    UC64CSRState *s = FROM_SYSBUS(UC64CSRState, dev);
++
++    memory_region_init_io(&s->iomem, &uc64_csr_ops, s, "uc64_csr",
++            PUV4_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void uc64_csr_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = uc64_csr_init;
++}
++
++static const TypeInfo uc64_csr_info = {
++    .name = "uc64_csr",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(UC64CSRState),
++    .class_init = uc64_csr_class_init,
++};
++
++static void uc64_csr_register_type(void)
++{
++    type_register_static(&uc64_csr_info);
++}
++
++type_init(uc64_csr_register_type)
+diff --git a/hw/unicore64/Makefile.objs b/hw/unicore64/Makefile.objs
+index 0a653e6..921f790 100644
+--- a/hw/unicore64/Makefile.objs
++++ b/hw/unicore64/Makefile.objs
+@@ -3,5 +3,6 @@
+ # PKUnity-v4 SoC and board information
+ obj-${CONFIG_PUV4} += ../puv4.o
+ obj-${CONFIG_PUV4} += ../puv4_io_ctl.o
++obj-${CONFIG_PUV4} += ../puv4_csr.o
+ obj-y += cp0_itm.o
+ obj-y += cp0_intc.o
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index a327590..56b50b2 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -302,6 +302,12 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+             prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+             page_size = TARGET_PAGE_SIZE;
+             ret = 0;
++        } else if ((address & 0xffffffffc1680000ULL)
++                == 0xffffffffc1680000ULL) {
++            phys_addr = address & 0x00000000c1680000;
++            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
++            page_size = TARGET_PAGE_SIZE;
++            ret = 0;
+         } else {
+             ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
+                     &prot, &page_size);
+-- 
+1.7.9.5
+

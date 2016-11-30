@@ -1,0 +1,33 @@
+From e588f32c7c5dc2b0d2f52e4712fe025c6609db5b Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 18:35:19 +0800
+Subject: [PATCH 235/247] unicore64: Adjust timers freq
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/unicore64/cp0_itm.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hw/unicore64/cp0_itm.c b/hw/unicore64/cp0_itm.c
+index 8a7f3f4..1590bef 100644
+--- a/hw/unicore64/cp0_itm.c
++++ b/hw/unicore64/cp0_itm.c
+@@ -29,7 +29,7 @@ uint64_t uc64_cp0_itimer_get_delta(void)
+ void uc64_cp0_itimer_set_count(uint64_t value)
+ {
+     ptimer_set_count(uc64_cp0_timer->ptimer, value);
+-    ptimer_run(uc64_cp0_timer->ptimer, true);
++    ptimer_run(uc64_cp0_timer->ptimer, 1);
+ }
+ 
+ static void uc64_cp0_itm_tick(void *opaque)
+@@ -50,5 +50,5 @@ void uc64_cp0_itm_init(CPUUniCore64State *env)
+     uc64_cp0_timer = (UC64CP0ITMState *)g_malloc0(sizeof(UC64CP0ITMState));
+     uc64_cp0_timer->bh = qemu_bh_new(uc64_cp0_itm_tick, env);
+     uc64_cp0_timer->ptimer = ptimer_init(uc64_cp0_timer->bh);
+-    ptimer_set_freq(uc64_cp0_timer->ptimer, 50 * 1000 * 1000);
++    ptimer_set_freq(uc64_cp0_timer->ptimer, 480 * 1024 * 1024);
+ }
+-- 
+1.7.9.5
+

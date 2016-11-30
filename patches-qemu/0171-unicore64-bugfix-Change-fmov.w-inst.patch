@@ -1,0 +1,28 @@
+From 105b7bbb9d1723539acb4ac83fff406bf8538b9d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sun, 19 Aug 2012 00:01:20 +0800
+Subject: [PATCH 171/247] unicore64-bugfix: Change fmov.w inst
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/ucf64_trans.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 77eec2f..9bc8434 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -267,8 +267,8 @@ static void do_ucf64_datap(CPUUniCore64State *env, DisasContext *s,
+             tcg_gen_st_i64(t_F0d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+             break;
+         case 2 /* w */:
+-            tcg_gen_ld_i32(t_F0s, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
+-            tcg_gen_st_i32(t_F0s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            tcg_gen_ld_i64(t_F0d, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
++            tcg_gen_st_i64(t_F0d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+             break;
+         default:
+             ILLEGAL_INSN(true);
+-- 
+1.7.9.5
+

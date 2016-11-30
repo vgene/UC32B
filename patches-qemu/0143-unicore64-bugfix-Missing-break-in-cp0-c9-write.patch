@@ -1,0 +1,25 @@
+From 7700beb4897391c236e7c5bed7dfd8374c9c58ce Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 22:16:00 +0800
+Subject: [PATCH 143/247] unicore64-bugfix: Missing break in cp0-c9 write
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index e0a38c1..38eb709 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -379,6 +379,7 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         switch (cop) {
+         case 0:
+             env->cp0.c9_excpbase = val;
++            break;
+         default:
+             goto unrecognized;
+         }
+-- 
+1.7.9.5
+

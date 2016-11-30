@@ -1,0 +1,27 @@
+From 7645684cd2c42189ab592fe366172731a98001d8 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 17:50:27 +0800
+Subject: [PATCH 101/247] unicore64-bugfix: CF setting is wrong in HELPER
+ afr_write
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index ca1f238..9177e9d 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -59,7 +59,7 @@ void HELPER(afr_write)(uint64_t x)
+ {
+     env->NF = x << 60;
+     env->ZF = (~x) & AFR_Z;
+-    env->CF = (x >> 1) & AFR_C;
++    env->CF = (x & AFR_C) >> 1;
+     env->VF = x << 63;
+ }
+ 
+-- 
+1.7.9.5
+

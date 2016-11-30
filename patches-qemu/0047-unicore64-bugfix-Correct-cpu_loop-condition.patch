@@ -1,0 +1,26 @@
+From cfdd97d0b4c61e68073018bcca247ac0837a7372 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 8 Aug 2012 18:06:08 +0800
+Subject: [PATCH 047/247] unicore64-bugfix: Correct cpu_loop condition
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index caa67cf..ce93b33 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -445,7 +445,7 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+             goto done_disas_loop;
+         }
+ 
+-    } while (dc->dc_jmp != DISAS_NEXT);
++    } while (dc->dc_jmp == DISAS_NEXT);
+ 
+ done_disas_loop:
+     if (unlikely(env->singlestep_enabled)) {
+-- 
+1.7.9.5
+

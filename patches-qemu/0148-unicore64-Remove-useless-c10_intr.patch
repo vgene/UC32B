@@ -1,0 +1,42 @@
+From 49bf19d1775db8e1a4b3adc3bf5228bd445b3728 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 01:03:16 +0800
+Subject: [PATCH 148/247] unicore64: Remove useless c10_intr
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h    |    1 -
+ target-unicore64/helper.c |    5 -----
+ 2 files changed, 6 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index b6ab18c..f0c5081 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -66,7 +66,6 @@ typedef struct CPUUniCore64State {
+         uint64_t c4_epc; /* Exception address register.*/
+         uint64_t c8_mrar[16]; /* Memory region configuration registers */
+         uint64_t c9_excpbase; /* Exception base register. */
+-        uint64_t c10_intr[11]; /* Timer interrupt and information registers */
+         uint64_t c11_rwmargin; /* Read/Write margin control register */
+         uint64_t c12_sysu[8]; /* SysU registers. */
+     } cp0;
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 38eb709..0042613 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -281,11 +281,6 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+             return env->cp0.c9_excpbase;
+         }
+         break;
+-    case 10:
+-        if (cop < 11) {
+-            return env->cp0.c10_intr[cop];
+-        }
+-        break;
+     case 11:
+         switch (cop) {
+         case 0:
+-- 
+1.7.9.5
+

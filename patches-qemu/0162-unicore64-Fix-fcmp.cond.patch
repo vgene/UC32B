@@ -1,0 +1,26 @@
+From 76f3d654e9dbb75df3b7db45a47fb5e13b434cc5 Mon Sep 17 00:00:00 2001
+From: Liu Wenhui <liuwenhui@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 05:30:35 +0800
+Subject: [PATCH 162/247] unicore64: Fix fcmp.cond
+
+Signed-off-by: Liu Wenhui <liuwenhui@mprc.pku.edu.cn>
+---
+ target-unicore64/ucf64_helper.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/ucf64_helper.c b/target-unicore64/ucf64_helper.c
+index 0a66821..d44c882 100644
+--- a/target-unicore64/ucf64_helper.c
++++ b/target-unicore64/ucf64_helper.c
+@@ -241,7 +241,7 @@ void HELPER(ucf64_cmps)(float32 a, float32 b, uint32_t c,
+         }
+         break;
+     }
+-    env->ucf64.fpsr = (env->CF << 29) | (env->ucf64.fpsr & 0x0fffffff);
++    env->ucf64.fpcr = (env->CF << 1) | (env->ucf64.fpcr & 0xf);
+ }
+ 
+ void HELPER(ucf64_cmpd)(float64 a, float64 b, uint32_t c,
+-- 
+1.7.9.5
+

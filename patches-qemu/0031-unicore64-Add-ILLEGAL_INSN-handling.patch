@@ -1,0 +1,65 @@
+From 0e16e4f93bba537b2cc4c8078e197d1c890c8729 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 7 Aug 2012 17:37:08 +0800
+Subject: [PATCH 031/247] unicore64: Add ILLEGAL_INSN handling
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index d5f643c..6818f6b 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -50,8 +50,12 @@ void uc64_translate_init(void)
+ #include "helper.h"
+ }
+ 
+-#define UNHANDLED_FLOW  cpu_abort(env,                                  \
+-                        "Unhandled control flow at line %d in %s!",     \
++#define ILLEGAL_INSN    cpu_abort(env,                                    \
++                        "Illegal UniCore64 instruction %08x at line %d!", \
++                        insn, __LINE__)
++
++#define UNHANDLED_FLOW  cpu_abort(env,                                    \
++                        "Unhandled control flow at line %d in %s!",       \
+                         __LINE__, __FILE__)
+ 
+ /* internal defines */
+@@ -79,26 +83,32 @@ static inline void gen_goto_tb(DisasContext *s, int n, target_ulong dest)
+ 
+ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
++    ILLEGAL_INSN;
+ }
+ 
+ static void do_srfr(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
++    ILLEGAL_INSN;
+ }
+ 
+ static void do_muldiv(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
++    ILLEGAL_INSN;
+ }
+ 
+ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
++    ILLEGAL_INSN;
+ }
+ 
+ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
++    ILLEGAL_INSN;
+ }
+ 
+ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
++    ILLEGAL_INSN;
+ }
+ 
+ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+-- 
+1.7.9.5
+

@@ -1,0 +1,25 @@
+From ea2d42f0c2ee7aded5ea4452e32ece6af44468bc Mon Sep 17 00:00:00 2001
+From: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Date: Fri, 9 Nov 2012 08:43:04 +0800
+Subject: [PATCH 192/247] unicore64: Add tlb_flush for p0.c5
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 9adbffa..88fd985 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -320,6 +320,7 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         }
+         break;
+     case 5:
++        tlb_flush(env, 1);
+         switch (cop) {
+         case 0xc:
+             DPRINTF("Invalidate DTLB single entry by VA\n");
+-- 
+1.7.9.5
+

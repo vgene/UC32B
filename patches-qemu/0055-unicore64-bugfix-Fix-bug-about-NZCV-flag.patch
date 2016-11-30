@@ -1,0 +1,39 @@
+From d7e0e9387664905db399a8123916aa289426882f Mon Sep 17 00:00:00 2001
+From: Liu Wenhui <liuwenhui@mprc.pku.edu.cn>
+Date: Thu, 9 Aug 2012 19:36:05 +0800
+Subject: [PATCH 055/247] unicore64-bugfix: Fix bug about NZCV flag
+
+Signed-off-by: Huang Mingkai <huangmingkai@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 0b5cd7a..77d7fad 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -60,8 +60,8 @@ uint32_t HELPER(sub_cc_i32)(uint32_t a, uint32_t b)
+     result = a - b;
+     env->NF = result >> 31;
+     env->ZF = (result == 0);
+-    env->CF = result < a;
+-    env->VF = ((a ^ b ^ -1) & (a ^ result)) >> 31;
++    env->CF = a >= b;
++    env->VF = ((a ^ b) & (a ^ result)) >> 31;
+     return result;
+ }
+ 
+@@ -71,8 +71,8 @@ uint64_t HELPER(sub_cc_i64)(uint64_t a, uint64_t b)
+     result = a - b;
+     env->NF = result >> 63;
+     env->ZF = (result == 0);
+-    env->CF = result < a;
+-    env->VF = ((a ^ b ^ -1) & (a ^ result)) >> 63;
++    env->CF = a >= b;
++    env->VF = ((a ^ b) & (a ^ result)) >> 63;
+     return result;
+ }
+ 
+-- 
+1.7.9.5
+

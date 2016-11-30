@@ -1,0 +1,25 @@
+From 3f0b35ff800d92cbf3ea1dab1c0f930c0a9b5b23 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 15 Jan 2013 16:31:39 +0800
+Subject: [PATCH 221/247] unicore64: Remove useless epc assignemnt sentence
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 498ad7c..78fd506 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -235,7 +235,6 @@ do_fault:
+     if (code) {
+         trace_uc64_get_phys_addr(address, desc, code, is_user);
+ 
+-        env->cp0.c4_epc = address;
+         if (access_type == 2) {
+             env->cp0.c3_ifaultstatus = code;
+             env->exception_index = UC64_EXCP_ITRAP;
+-- 
+1.7.9.5
+

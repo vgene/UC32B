@@ -1,0 +1,118 @@
+From d64e8175ed9a1127ce0edab1ea37b8b9bc9f5441 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 14 Aug 2012 15:27:37 +0800
+Subject: [PATCH 116/247] unicore64: Simplify bsr/bfr handling
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |   20 --------------------
+ target-unicore64/helper.h    |    4 ----
+ target-unicore64/translate.c |   13 ++++++++-----
+ 3 files changed, 8 insertions(+), 29 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 33b2cf7..e765904 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -55,26 +55,6 @@ void HELPER(exception)(uint32_t excp)
+     cpu_loop_exit(env);
+ }
+ 
+-void HELPER(bsr_write)(uint64_t x)
+-{
+-    env->bsr = x & 0x7ff;
+-}
+-
+-void HELPER(bfr_write)(uint64_t x)
+-{
+-    env->bfr = x & 0xf;
+-}
+-
+-uint64_t HELPER(bfr_read)(void)
+-{
+-    return env->bfr;
+-}
+-
+-uint64_t HELPER(bsr_read)(void)
+-{
+-    return env->bsr;
+-}
+-
+ void HELPER(asr_write)(uint64_t x)
+ {
+     uint64_t mod = x & ASR_MODE_SELECT;
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index cdb4ea7..49e7842 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -15,12 +15,8 @@ DEF_HELPER_3(cp0_get, i64, env, i64, i64)
+ DEF_HELPER_1(exception, void, i32)
+ DEF_HELPER_0(afr_read, i64)
+ DEF_HELPER_0(asr_read, i64)
+-DEF_HELPER_0(bfr_read, i64)
+-DEF_HELPER_0(bsr_read, i64)
+ DEF_HELPER_1(afr_write, void, i64)
+ DEF_HELPER_1(asr_write, void, i64)
+-DEF_HELPER_1(bfr_write, void, i64)
+-DEF_HELPER_1(bsr_write, void, i64)
+ DEF_HELPER_1(clz_i32, i32, i32)
+ DEF_HELPER_1(clz_i64, i64, i64)
+ DEF_HELPER_1(clo_i32, i32, i32)
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index ded3d32..405536a 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -96,6 +96,9 @@ typedef struct DisasContext {
+ #define gen_load_cpu_field(t_op_64, name)               \
+     tcg_gen_ld_i64(t_op_64, cpu_env, offsetof(CPUUniCore64State, name))
+ 
++#define gen_store_cpu_field(t_op_64, name)               \
++    tcg_gen_st_i64(t_op_64, cpu_env, offsetof(CPUUniCore64State, name))
++
+ /* Set flags from result.  */
+ static inline void gen_flags_logic(TCGv_i64 var_rd)
+ {
+@@ -736,7 +739,7 @@ static void do_srfr(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         if (UCOP_SET(26)) { /* C bit: insn mov afr, imm*/
+             gen_helper_afr_write(t_flag_64);
+         } else {/* insn mov bfr, imm */
+-            gen_helper_bfr_write(t_flag_64);
++            gen_store_cpu_field(t_flag_64, bfr);
+         }
+ 
+         tcg_temp_free_i64(t_flag_64);
+@@ -749,13 +752,13 @@ static void do_srfr(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+         switch ((insn >> 26) & 0x3) {
+         case 0: /* !F && !C : bsr */
+-            gen_helper_bsr_write(t_flag_64);
++            gen_store_cpu_field(t_flag_64, bsr);
+             break;
+         case 1: /* !F &&  C : asr */
+             gen_helper_asr_write(t_flag_64);
+             break;
+         case 2: /*  F && !C : bfr */
+-            gen_helper_bfr_write(t_flag_64);
++            gen_store_cpu_field(t_flag_64, bfr);
+             break;
+         case 3: /*  F &&  C : afr */
+             gen_helper_afr_write(t_flag_64);
+@@ -769,13 +772,13 @@ static void do_srfr(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+         switch ((insn >> 26) & 0x3) {
+         case 0: /* !F && !C : bsr */
+-            gen_helper_bsr_read(t_flag_64);
++            gen_load_cpu_field(t_flag_64, bsr);
+             break;
+         case 1: /* !F &&  C : asr */
+             gen_helper_asr_read(t_flag_64);
+             break;
+         case 2: /*  F && !C : bfr */
+-            gen_helper_bfr_read(t_flag_64);
++            gen_load_cpu_field(t_flag_64, bfr);
+             break;
+         case 3: /*  F &&  C : afr */
+             gen_helper_afr_read(t_flag_64);
+-- 
+1.7.9.5
+

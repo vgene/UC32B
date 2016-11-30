@@ -1,0 +1,46 @@
+From 564536b8c7f68ebe6e82f038a625bb97deefc26d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 01:10:48 +0800
+Subject: [PATCH 121/247] unicore64-softmmu: Adjust c12_sysu register number
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h    |    2 +-
+ target-unicore64/helper.c |    7 ++-----
+ 2 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 7cb1c5e..b3558df 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -65,7 +65,7 @@ typedef struct CPUUniCore64State {
+         uint64_t c6_dcache; /* Dcache management register */
+         uint64_t c7_icache; /* Icache management register */
+         uint64_t c9_excpbase; /* Exception base register. */
+-        uint64_t c12_sysu[9]; /* SysU registers. */
++        uint64_t c12_sysu[8]; /* SysU registers. */
+     } cp0;
+ 
+     CPU_COMMON
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index f9d9417..dea4480 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -279,12 +279,9 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         }
+         break;
+     case 12:
+-        switch (cop) {
+-        case 6:
+-        case 7:
++        if (cop < 8) {
+             env->cp0.c12_sysu[cop] = val;
+-            break;
+-        default:
++        } else {
+             goto unrecognized;
+         }
+         break;
+-- 
+1.7.9.5
+

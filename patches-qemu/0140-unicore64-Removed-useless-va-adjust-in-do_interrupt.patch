@@ -1,0 +1,26 @@
+From 0e8b5f0547d6171583bad3d064fcb263ef9eb19f Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 20:58:22 +0800
+Subject: [PATCH 140/247] unicore64: Removed useless va adjust in do_interrupt
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index a711502..a8fc0fb 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -126,7 +126,7 @@ void do_interrupt(CPUUniCore64State *env)
+         return;
+     }
+     /* Get exception virtual base address, only least 39 bits available */
+-    addr += (env->cp0.c9_excpbase & 0x7fffffffffULL);
++    addr += (env->cp0.c9_excpbase);
+ 
+     switch_mode(env, ASR_MODE_PRIV);
+     env->uncached_asr = (env->uncached_asr & ~ASR_MODE_SELECT) | ASR_MODE_PRIV;
+-- 
+1.7.9.5
+

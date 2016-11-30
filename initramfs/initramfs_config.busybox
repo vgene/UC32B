@@ -31,6 +31,7 @@ file /etc/fstab		../../etc/fstab	755 0 0
 file /etc/inittab	../../etc/inittab	755 0 0
 file /etc/passwd	../../etc/passwd	755 0 0
 file /etc/helloworld    ../../etc/helloworld        755 0 0
+file /etc/helloworld_static    ../../etc/helloworld_static  755 0 0
 #file /etc/sysinit	../../etc/sysinit	755 0 0
 
 file /bin/busybox	../busybox/_install/bin/busybox 755 0 0

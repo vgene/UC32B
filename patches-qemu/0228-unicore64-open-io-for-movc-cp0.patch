@@ -1,0 +1,40 @@
+From 01f10cab4243ddd1c4d77754149635aeb593dc06 Mon Sep 17 00:00:00 2001
+From: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Date: Fri, 3 Jan 2014 10:47:21 +0800
+Subject: [PATCH 228/247] unicore64: open io for movc cp0
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 4da7852..d9b2aa6 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1337,6 +1337,10 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         t_creg_64 = tcg_temp_new_i64();
+         t_cop_64 = tcg_temp_new_i64();
+         tcg_gen_movi_i64(t_cop_64, UCOP_IMM_9);
++        if (use_icount) {
++            gen_io_start();
++        }
++
+         if (UCOP_SET(25)) { /* load */
+             tcg_gen_movi_i64(t_creg_64, UCOP_REG_S1);
+             gen_helper_cp0_get(t_creg_64, cpu_env, t_creg_64, t_cop_64);
+@@ -1346,6 +1350,11 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             gen_helper_cp0_set(cpu_env, cpu_R[UCOP_REG_S1], t_creg_64,
+                     t_cop_64);
+         }
++
++        if (use_icount) {
++            gen_io_end();
++        }
++
+         tcg_temp_free(t_creg_64);
+         tcg_temp_free(t_cop_64);
+         break;
+-- 
+1.7.9.5
+

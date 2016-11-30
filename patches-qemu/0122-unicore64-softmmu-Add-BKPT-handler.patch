@@ -1,0 +1,69 @@
+From fa5010896d62a5aa36991770f02c4f49f5d83ea0 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 01:26:27 +0800
+Subject: [PATCH 122/247] unicore64-softmmu: Add BKPT handler
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |   10 ++++++++++
+ target-unicore64/helper.h    |    1 +
+ target-unicore64/translate.c |    9 +++++++--
+ 3 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index dea4480..fa8a317 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -37,6 +37,16 @@ CPUUniCore64State *uc64_cpu_init(const char *cpu_model)
+     return env;
+ }
+ 
++void helper_ocd_output(void)
++{
++    if (env->cp0.c12_sysu[6]) { /* 1 */
++        printf("%c", (unsigned char)env->cp0.c12_sysu[7]);
++    } else { /* 0 */
++        printf("\n--%16" PRIx64 "--", env->cp0.c12_sysu[7]);
++    }
++    fflush(NULL);
++}
++
+ void helper_cp1_putc(target_ulong x)
+ {
+     printf("%c", (unsigned char)x); /* Output to stdout */
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 5428389..5bf3b3a 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -10,6 +10,7 @@
+ 
+ DEF_HELPER_1(cp1_putc, void, i64)
+ DEF_HELPER_1(cp1_putx, void, i64)
++DEF_HELPER_0(ocd_output, void)
+ DEF_HELPER_3(cp0_get, i64, env, i64, i64)
+ DEF_HELPER_4(cp0_set, void, env, i64, i64, i64)
+ 
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 66e6e82..1b22544 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1243,9 +1243,14 @@ static void do_exception(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         tcg_temp_free_i32(tmp);
+ 
+         s->dc_jmp = DISAS_TB_JUMP;
+-    } else {
+-        ILLEGAL_INSN(true);
++        return;
+     }
++
++    if ((insn & 0xff000000) == 0xee000000) { /* BKPT */
++        gen_helper_ocd_output();
++        return;
++    }
++    ILLEGAL_INSN(true);
+ }
+ 
+ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+-- 
+1.7.9.5
+

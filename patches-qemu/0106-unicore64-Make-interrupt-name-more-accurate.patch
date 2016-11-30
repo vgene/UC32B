@@ -1,0 +1,40 @@
+From c1ae6b9a0240181da930c986771a500ebacdfdc9 Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Tue, 14 Aug 2012 03:55:27 +0800
+Subject: [PATCH 106/247] unicore64: Make interrupt name more accurate
+
+Signed-off-by: zhang Mengchi <zhngmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h     |    2 +-
+ target-unicore64/softmmu.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index af55318..e56e93f 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -72,7 +72,7 @@ typedef struct CPUUniCore64State {
+ #define UC64_EXCP_PRIV          0x08
+ #define UC64_EXCP_ITRAP         0x0c
+ #define UC64_EXCP_DTRAP         0x10
+-#define UC64_EXCP_INTR          0x20
++#define UC64_INT_TIMER          0x20
+ 
+ /* Return the current ASR value.  */
+ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 14ad6d1..056b4b4 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -103,7 +103,7 @@ void do_interrupt(CPUUniCore64State *env)
+         new_mode = ASR_MODE_PRIV;
+         addr = UC64_EXCP_DTRAP;
+         break;
+-    case UC64_EXCP_INTR:
++    case UC64_INT_TIMER:
+     default:
+         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
+         return;
+-- 
+1.7.9.5
+

@@ -1,0 +1,25 @@
+From 8db6e2211db2a47533ad94c9dda94724925cbbd2 Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 18:01:56 +0800
+Subject: [PATCH 133/247] unicore64: Set trap return address
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index d8a65c6..d7968d0 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -208,6 +208,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+ 
+ do_fault:
+     if (code) {
++        env->cp0.c4_itrapaddr = address;
+         if (access_type == 2) {
+             env->cp0.c3_ifaultstatus = code;
+             env->exception_index = UC64_EXCP_ITRAP;
+-- 
+1.7.9.5
+

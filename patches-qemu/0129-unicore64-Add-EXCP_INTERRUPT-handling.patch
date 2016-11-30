@@ -1,0 +1,27 @@
+From a5cebe2645177c20d5f5aa3fa521cd4cd45163d9 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 17:43:36 +0800
+Subject: [PATCH 129/247] unicore64: Add EXCP_INTERRUPT handling
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ linux-user/main.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/linux-user/main.c b/linux-user/main.c
+index cd7511c..dd36fe4 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -1024,6 +1024,9 @@ void cpu_loop(CPUUniCore64State *env)
+         case UC64_EXCP_ITRAP:
+             goto error; /* FIXME */
+             break;
++        case EXCP_INTERRUPT:
++            /* just indicate that signals should be handled asap */
++            break;
+         default:
+             goto error;
+         }
+-- 
+1.7.9.5
+

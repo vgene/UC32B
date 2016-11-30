@@ -1,0 +1,31 @@
+From 1c9f82fa0a65c0f750f9d02779915ed6e430e5ef Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 20 Jul 2012 15:23:01 +0800
+Subject: [PATCH 015/247] unicore32-softmmu: Add is_default setting for puv3
+ machine
+
+This patch sets is_default to 1 for puv3 machine, so that
+find_default_machine() returns puv3 machine.
+Thanks Dunrong for pointing it out.
+
+Cc: Dunrong Huang <riegamaths@gmail.com>
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv3.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hw/puv3.c b/hw/puv3.c
+index 271df97..43f7216 100644
+--- a/hw/puv3.c
++++ b/hw/puv3.c
+@@ -119,6 +119,7 @@ static QEMUMachine puv3_machine = {
+     .name = "puv3",
+     .desc = "PKUnity Version-3 based on UniCore32",
+     .init = puv3_init,
++    .is_default = 1,
+     .use_scsi = 0,
+ };
+ 
+-- 
+1.7.9.5
+

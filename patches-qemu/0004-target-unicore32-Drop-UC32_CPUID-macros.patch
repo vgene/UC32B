@@ -1,0 +1,35 @@
+From dd5da38a83dfbf685c40ad761538dc93ec81a183 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>
+Date: Fri, 25 May 2012 13:51:58 +0200
+Subject: [PATCH 004/247] target-unicore32: Drop UC32_CPUID macros
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Any code that depends on a particular CPU type can now go through
+callbacks on the QOM UniCore32CPUClass.
+
+Signed-off-by: Andreas Färber <afaerber@suse.de
+Acked-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore32/cpu.h |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/target-unicore32/cpu.h b/target-unicore32/cpu.h
+index d14fde5..06508a1 100644
+--- a/target-unicore32/cpu.h
++++ b/target-unicore32/cpu.h
+@@ -122,10 +122,6 @@ void cpu_asr_write(CPUUniCore32State *env1, target_ulong val, target_ulong mask)
+ #define UC32_HWCAP_CMOV                 4 /* 1 << 2 */
+ #define UC32_HWCAP_UCF64                8 /* 1 << 3 */
+ 
+-#define UC32_CPUID(env)                 (env->cp0.c0_cpuid)
+-#define UC32_CPUID_UCV2                 0x40010863
+-#define UC32_CPUID_ANY                  0xffffffff
+-
+ #define cpu_init                        uc32_cpu_init
+ #define cpu_exec                        uc32_cpu_exec
+ #define cpu_signal_handler              uc32_cpu_signal_handler
+-- 
+1.7.9.5
+

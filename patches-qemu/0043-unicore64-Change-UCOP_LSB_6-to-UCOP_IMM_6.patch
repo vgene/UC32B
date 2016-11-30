@@ -1,0 +1,48 @@
+From 39650beba766c21ffc79b9b8196aedde55cb6a68 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 8 Aug 2012 14:12:20 +0800
+Subject: [PATCH 043/247] unicore64: Change UCOP_LSB_6 to UCOP_IMM_6
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index d96baa6..2f92bef 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -68,7 +68,7 @@ void uc64_translate_init(void)
+ #define UCOP_OPCODE             (((insn) >> 24) & 0x0f)
+ #define UCOP_SHIFT              (((insn) >> 24) & 0x03)
+ #define UCOP_IMM11              (((insn) >>  0) & 0x7ff)
+-#define UCOP_LSB_6              (((insn) >>  0) & 0x3f)
++#define UCOP_IMM_6              (((insn) >>  0) & 0x3f)
+ #define UCOP_CPNUM              (((insn) >> 21) & 0xf)
+ 
+ #define UCOP_SET(i)             ((insn) & (1 << (i)))
+@@ -115,10 +115,10 @@ static void do_shift(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     if (UCOP_SET(21)) { /* reg or imm */
+         ILLEGAL_INSN(!UCOP_SET(22) && UCOP_SET(5)); /* bits_per_word = 32 */
+ 
+-        tcg_gen_movi_i64(t_op2_64, UCOP_LSB_6);
++        tcg_gen_movi_i64(t_op2_64, UCOP_IMM_6);
+     } else {
+         ILLEGAL_INSN(UCOP_REG_S2 == 31);
+-        ILLEGAL_INSN(UCOP_LSB_6);
++        ILLEGAL_INSN(UCOP_IMM_6);
+ 
+         tcg_gen_mov_i64(t_op2_64, cpu_R[UCOP_REG_S2]);
+     }
+@@ -209,7 +209,7 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         tcg_gen_movi_i64(t_op2_64, UCOP_IMM11);
+     } else {
+         ILLEGAL_INSN(UCOP_REG_S2 == 31);
+-        ILLEGAL_INSN(UCOP_LSB_6);
++        ILLEGAL_INSN(UCOP_IMM_6);
+ 
+         tcg_gen_mov_i64(t_op2_64, cpu_R[UCOP_REG_S2]);
+     }
+-- 
+1.7.9.5
+

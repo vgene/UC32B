@@ -1,0 +1,70 @@
+From aeae19dd8d6047c8867817d04dd69ff59f5ac6ed Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 31 Dec 2012 14:12:09 +0800
+Subject: [PATCH 202/247] unicore64: Use tracetool to trace mmu ops
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |   12 ++++++------
+ trace-events              |    2 ++
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 2e592f5..9ecc9b8 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -377,13 +377,13 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         tlb_flush(env, 1);
+         switch (cop) {
+         case 0xc:
+-            DPRINTF("Invalidate DTLB single entry by VA\n");
++            trace_uc64_mmu_tlb_ops("Invalidate DTLB single entry by VA\n");
+             return;
+         case 0x14:
+-            DPRINTF("Invalidate ITLB single entry by VA\n");
++            trace_uc64_mmu_tlb_ops("Invalidate ITLB single entry by VA\n");
+             return;
+         case 0x18:
+-            DPRINTF("Invalidate I&D TLB\n");
++            trace_uc64_mmu_tlb_ops("Invalidate I&D TLB\n");
+             return;
+         default:
+             goto unrecognized;
+@@ -392,10 +392,10 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+     case 6:
+         switch (cop) {
+         case 0x8:
+-            DPRINTF("Invalidate Entire L1 DCache\n");
++            trace_uc64_mmu_cache_ops("Invalidate Entire L1 DCache\n");
+             return;
+         case 0xc:
+-            DPRINTF("Flush Entire L1 DCache\n");
++            trace_uc64_mmu_cache_ops("Flush Entire L1 DCache\n");
+             return;
+         default:
+             goto unrecognized;
+@@ -404,7 +404,7 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+     case 7:
+         switch (cop) {
+         case 0:
+-            DPRINTF("Invalidate Entire ICache\n");
++            trace_uc64_mmu_cache_ops("Invalidate Entire ICache\n");
+             break;
+         default:
+             goto unrecognized;
+diff --git a/trace-events b/trace-events
+index 194b9e2..4736c25 100644
+--- a/trace-events
++++ b/trace-events
+@@ -893,6 +893,8 @@ uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRI
+ uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va %16." PRIx64 " desc %16." PRIx64 " code %d is_user %d"
+ # target-unicore64/helper.c
+ uc64_guestos_output(const char *str) ": %s"
++uc64_mmu_tlb_ops(const char *str) ": %s"
++uc64_mmu_cache_ops(const char *str) ": %s"
+ 
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+-- 
+1.7.9.5
+

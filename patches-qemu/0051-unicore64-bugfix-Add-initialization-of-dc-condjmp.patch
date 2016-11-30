@@ -1,0 +1,25 @@
+From 05b85fc399e15fca58285071356565dc626a275a Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 9 Aug 2012 09:38:00 +0800
+Subject: [PATCH 051/247] unicore64-bugfix: Add initialization of dc->condjmp
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 074b218..92fb291 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -630,6 +630,7 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+     dc->dc_pc = pc_start;
+     dc->dc_jmp = DISAS_NEXT;
+     dc->dc_singlestep = env->singlestep_enabled;
++    dc->condjmp = false;
+ 
+     num_insns = 0;
+     max_insns = tb->cflags & CF_COUNT_MASK;
+-- 
+1.7.9.5
+

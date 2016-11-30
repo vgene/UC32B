@@ -1,0 +1,27 @@
+From 87bc6a4c6188972ea6e4abd6727acea84e6515a1 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 23 Jul 2013 10:05:30 +0800
+Subject: [PATCH 229/247] unicore64: Halt the second core
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/target-unicore64/cpu.c b/target-unicore64/cpu.c
+index 29ea7c0..65d8c6b 100644
+--- a/target-unicore64/cpu.c
++++ b/target-unicore64/cpu.c
+@@ -51,6 +51,9 @@ static void uc64_cpu_initfn(Object *obj)
+     CPUUniCore64State *env = &cpu->env;
+ 
+     cpu_exec_init(env);
++    if (env->cpu_index) {
++        env->halted = 1;
++    }
+     env->cpu_model_str = object_get_typename(obj);
+ 
+     tlb_flush(env, 1);
+-- 
+1.7.9.5
+

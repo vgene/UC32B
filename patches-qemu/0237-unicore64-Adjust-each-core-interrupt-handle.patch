@@ -1,0 +1,39 @@
+From 8aba157720d8e1e54cdbc6c05398d5a8cfaaa712 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 18:38:02 +0800
+Subject: [PATCH 237/247] unicore64: Adjust each core interrupt handle
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/unicore64/cp0_intc.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index 99f32be..f429e84 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -25,11 +25,19 @@ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int val)
+ {
+     if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
+         env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
+-        qemu_irq_lower(uc64_cpu0_intc[2]);
++        if (env->cpu_index == 0) {
++            qemu_irq_lower(uc64_cpu0_intc[2]);
++        } else {
++            qemu_irq_lower(uc64_cpu1_intc[2]);
++        }
+     }
+     if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_IPI) {
+         env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_IPI;
+-        qemu_irq_lower(uc64_cpu1_intc[0]);
++        if (env->cpu_index == 0) {
++            qemu_irq_lower(uc64_cpu0_intc[0]);
++        } else {
++            qemu_irq_lower(uc64_cpu1_intc[0]);
++        }
+     }
+     if (val == UC64_INTR_OTM) {
+         qemu_irq_lower(uc64_cpu0_intc[UC64_INTR_OTM]);
+-- 
+1.7.9.5
+

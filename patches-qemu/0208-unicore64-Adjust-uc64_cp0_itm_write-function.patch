@@ -1,0 +1,81 @@
+From d693901c1a5d0a2da6026797d11d0a5212042dea Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 19:32:46 +0800
+Subject: [PATCH 208/247] unicore64: Adjust uc64_cp0_itm_write function
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4_cp0_itm.c         |   19 +++----------------
+ target-unicore64/cpu.h    |    2 +-
+ target-unicore64/helper.c |   11 +++++++++--
+ 3 files changed, 13 insertions(+), 19 deletions(-)
+
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+index 28a2d57..9a6ad66 100644
+--- a/hw/puv4_cp0_itm.c
++++ b/hw/puv4_cp0_itm.c
+@@ -29,23 +29,10 @@ uint64_t uc64_cp0_itimer_get_delta(void)
+     return (uint64_t)ptimer_get_count(puv4_timer->ptimer);
+ }
+ 
+-void uc64_cp0_itm_write(CPUUniCore64State *env, uint64_t imm, uint64_t value)
++void uc64_cp0_itimer_set_count(uint64_t value)
+ {
+-    switch (imm) {
+-    case 10: /* Match Register */
+-        env->cp0.c10_itimermr = value;
+-        if (env->cp0.c10_itimermr > env->cp0.c10_itimercr) {
+-            ptimer_set_count(puv4_timer->ptimer,
+-                    env->cp0.c10_itimermr - env->cp0.c10_itimercr);
+-         } else {
+-            ptimer_set_count(puv4_timer->ptimer, env->cp0.c10_itimermr +
+-                    (0xffffffffffffffffULL - env->cp0.c10_itimercr));
+-         }
+-        ptimer_run(puv4_timer->ptimer, 2);
+-        break;
+-    default:
+-        DPRINTF("Bad immediate number %x\n", (int)imm);
+-    }
++    ptimer_set_count(puv4_timer->ptimer, value);
++    ptimer_run(puv4_timer->ptimer, true);
+ }
+ 
+ static void uc64_cp0_itm_tick(void *opaque)
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 8f5aeb3..8e1f151 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -177,7 +177,7 @@ static inline bool cpu_has_work(CPUUniCore64State *env)
+ 
+ /*puv4_cp0_itm.c*/
+ uint64_t uc64_cp0_itimer_get_delta(void);
+-void uc64_cp0_itm_write(CPUUniCore64State *env, uint64_t imm, uint64_t value);
++void uc64_cp0_itimer_set_count(uint64_t value);
+ 
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int);
+ void uc64_cp0_intc_irq_raise(int);
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index db56ba1..2e72d39 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -432,8 +432,15 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         case 0: /* Interrupt type */
+             uc64_cp0_intc_irq_lower(env, 2);
+             break;
+-        case 10:
+-            uc64_cp0_itm_write(env, cop, val);
++        case 10: /* Match Register */
++            env->cp0.c10_itimermr = val;
++            if (env->cp0.c10_itimermr > env->cp0.c10_itimercr) {
++                uc64_cp0_itimer_set_count(env->cp0.c10_itimermr -
++                        env->cp0.c10_itimercr);
++            } else {
++                uc64_cp0_itimer_set_count(env->cp0.c10_itimermr +
++                        (0xffffffffffffffffULL - env->cp0.c10_itimercr));
++            }
+             break;
+         default:
+             goto unrecognized;
+-- 
+1.7.9.5
+

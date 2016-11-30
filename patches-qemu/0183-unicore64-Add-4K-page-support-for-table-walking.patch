@@ -1,0 +1,46 @@
+From 245112f2584ed759a13a1ca54c5a9cc78f86149e Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Wed, 5 Sep 2012 09:44:23 +0800
+Subject: [PATCH 183/247] unicore64: Add 4K page support for table walking
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |   22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 9b0377b..e5a646c 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -156,7 +156,27 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+         *page_size = SUPERPAGE_SIZE;
+         break;
+     case 0:
+-        cpu_abort(env, "4k page type not supported yet!");
++        /* Lookup l3 entry.  */
++        if (is_user) {
++            DPRINTF("PMD address %" PRIx64 ", desc %" PRIx64 "\n", table, desc);
++        }
++        if (!(desc & UC64_PAGETABLE_EXIST)) {
++            code = 0x03; /* third pagetable miss */
++            goto do_fault;
++        }
++        table = (desc & 0xffffff000ULL) | ((address >> 9) & 0xff8);
++        desc = ldl_phys(table);
++        /* 4k page.  */
++        if (is_user) {
++            DPRINTF("PTE address %" PRIx64 ", desc %" PRIx64 "\n", table, desc);
++        }
++        if (!(desc & UC64_PAGETABLE_EXIST)) {
++            code = 0x04; /* page miss */
++            goto do_fault;
++        }
++        phys_addr = (desc & 0xffffff000ULL) | (address & 0xfff);
++        *page_size = TARGET_PAGE_SIZE;
++        break;
+     default:
+         cpu_abort(env, "wrong page type!");
+     }
+-- 
+1.7.9.5
+

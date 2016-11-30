@@ -1,0 +1,27 @@
+From d90a38f5bedd74b97a72e722148dfe74e25a344e Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 24 May 2012 13:40:25 +0800
+Subject: [PATCH 094/247] uc32-softmmu-curses: make curses run on putty, ugly
+ but workable
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ ui/curses.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ui/curses.c b/ui/curses.c
+index c2be2c6..8dde653 100644
+--- a/ui/curses.c
++++ b/ui/curses.c
+@@ -338,7 +338,7 @@ void curses_display_init(DisplayState *ds, int full_screen)
+ #ifndef _WIN32
+     if (!isatty(1)) {
+         fprintf(stderr, "We need a terminal output\n");
+-        exit(1);
++        /* exit(1); */
+     }
+ #endif
+ 
+-- 
+1.7.9.5
+

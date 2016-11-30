@@ -1,0 +1,29 @@
+From 194a985ff305be4d207e424bf4aa4e19002d9776 Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 14:41:16 +0800
+Subject: [PATCH 095/247] unicore64: add elements for coprocessor cp0
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 8242323..f4dcc3a 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -48,6 +48,11 @@ typedef struct CPUUniCore64State {
+     /* System control coprocessor (cp0) */
+     struct {
+         uint64_t c0_cpuid;
++        uint64_t c1_sys; /* System control register.  */
++        uint64_t c2_base; /* MMU translation table base.  */
++        uint64_t c3_faultstatus; /* Fault status registers.  */
++        uint64_t c4_faultaddr; /* Fault address registers.  */
++        uint64_t c9_excpaddr;
+     } cp0;
+ 
+     CPU_COMMON
+-- 
+1.7.9.5
+

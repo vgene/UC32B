@@ -1,0 +1,387 @@
+From 61b5ff2c24ac5ffb63c458d33eed976aaa3f71ec Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 25 May 2012 19:04:38 +0800
+Subject: [PATCH 002/247] unicore32-softmmu: Add coprocessor 0(sysctrl) and
+ 1(ocd) instruction support
+
+Coprocessor 0 is system control coprocessor, and we need get/set its contents.
+Also, all cache/tlb ops shoule be implemented here, but just ignored with no harm.
+
+Coprocessor 1 is OCD (on-chip-debugger), which is used for faked console,
+so we could output chars to this console without graphic card.
+TODO: curses display should be added lator for screen output.
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore32/helper.c    |  185 +++++++++++++++++++++++++++++++++---------
+ target-unicore32/helper.h    |   17 ++--
+ target-unicore32/translate.c |   80 +++++++++++++++++-
+ 3 files changed, 233 insertions(+), 49 deletions(-)
+
+diff --git a/target-unicore32/helper.c b/target-unicore32/helper.c
+index 9b8ff06..f9f1960 100644
+--- a/target-unicore32/helper.c
++++ b/target-unicore32/helper.c
+@@ -14,6 +14,14 @@
+ #include "helper.h"
+ #include "host-utils.h"
+ 
++#undef DEBUG_UC32
++
++#ifdef DEBUG_UC32
++#define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
++#else
++#define DPRINTF(fmt, ...) do {} while (0)
++#endif
++
+ CPUUniCore32State *uc32_cpu_init(const char *cpu_model)
+ {
+     UniCore32CPU *cpu;
+@@ -45,6 +53,146 @@ uint32_t HELPER(clz)(uint32_t x)
+     return clz32(x);
+ }
+ 
++#ifndef CONFIG_USER_ONLY
++void helper_cp0_set(CPUUniCore32State *env, uint32_t val, uint32_t creg,
++        uint32_t cop)
++{
++    /*
++     * movc pp.nn, rn, #imm9
++     *      rn: UCOP_REG_D
++     *      nn: UCOP_REG_N
++     *          1: sys control reg.
++     *          2: page table base reg.
++     *          3: data fault status reg.
++     *          4: insn fault status reg.
++     *          5: cache op. reg.
++     *          6: tlb op. reg.
++     *      imm9: split UCOP_IMM10 with bit5 is 0
++     */
++    switch (creg) {
++    case 1:
++        if (cop != 0) {
++            goto unrecognized;
++        }
++        env->cp0.c1_sys = val;
++        break;
++    case 2:
++        if (cop != 0) {
++            goto unrecognized;
++        }
++        env->cp0.c2_base = val;
++        break;
++    case 3:
++        if (cop != 0) {
++            goto unrecognized;
++        }
++        env->cp0.c3_faultstatus = val;
++        break;
++    case 4:
++        if (cop != 0) {
++            goto unrecognized;
++        }
++        env->cp0.c4_faultaddr = val;
++        break;
++    case 5:
++        switch (cop) {
++        case 28:
++            DPRINTF("Invalidate Entire I&D cache\n");
++            return;
++        case 20:
++            DPRINTF("Invalidate Entire Icache\n");
++            return;
++        case 12:
++            DPRINTF("Invalidate Entire Dcache\n");
++            return;
++        case 10:
++            DPRINTF("Clean Entire Dcache\n");
++            return;
++        case 14:
++            DPRINTF("Flush Entire Dcache\n");
++            return;
++        case 13:
++            DPRINTF("Invalidate Dcache line\n");
++            return;
++        case 11:
++            DPRINTF("Clean Dcache line\n");
++            return;
++        case 15:
++            DPRINTF("Flush Dcache line\n");
++            return;
++        }
++        break;
++    case 6:
++        if ((cop <= 6) && (cop >= 2)) {
++            /* invalid all tlb */
++            tlb_flush(env, 1);
++            return;
++        }
++        break;
++    default:
++        goto unrecognized;
++    }
++    return;
++unrecognized:
++    DPRINTF("Wrong register (%d) or wrong operation (%d) in cp0_set!\n",
++            creg, cop);
++}
++
++uint32_t helper_cp0_get(CPUUniCore32State *env, uint32_t creg, uint32_t cop)
++{
++    /*
++     * movc rd, pp.nn, #imm9
++     *      rd: UCOP_REG_D
++     *      nn: UCOP_REG_N
++     *          0: cpuid and cachetype
++     *          1: sys control reg.
++     *          2: page table base reg.
++     *          3: data fault status reg.
++     *          4: insn fault status reg.
++     *      imm9: split UCOP_IMM10 with bit5 is 0
++     */
++    switch (creg) {
++    case 0:
++        switch (cop) {
++        case 0:
++            return env->cp0.c0_cpuid;
++        case 1:
++            return env->cp0.c0_cachetype;
++        }
++        break;
++    case 1:
++        if (cop == 0) {
++            return env->cp0.c1_sys;
++        }
++        break;
++    case 2:
++        if (cop == 0) {
++            return env->cp0.c2_base;
++        }
++        break;
++    case 3:
++        if (cop == 0) {
++            return env->cp0.c3_faultstatus;
++        }
++        break;
++    case 4:
++        if (cop == 0) {
++            return env->cp0.c4_faultaddr;
++        }
++        break;
++    }
++    DPRINTF("Wrong register (%d) or wrong operation (%d) in cp0_set!\n",
++            creg, cop);
++    return 0;
++}
++
++void helper_cp1_putc(target_ulong x)
++{
++    /* TODO: curses display should be added here for screen output. */
++    DPRINTF("%c", x);
++}
++#endif
++
+ #ifdef CONFIG_USER_ONLY
+ void switch_mode(CPUUniCore32State *env, int mode)
+ {
+@@ -66,43 +214,6 @@ int uc32_cpu_handle_mmu_fault(CPUUniCore32State *env, target_ulong address,
+ }
+ #endif
+ 
+-/* These should probably raise undefined insn exceptions.  */
+-void HELPER(set_cp)(CPUUniCore32State *env, uint32_t insn, uint32_t val)
+-{
+-    int op1 = (insn >> 8) & 0xf;
+-    cpu_abort(env, "cp%i insn %08x\n", op1, insn);
+-    return;
+-}
+-
+-uint32_t HELPER(get_cp)(CPUUniCore32State *env, uint32_t insn)
+-{
+-    int op1 = (insn >> 8) & 0xf;
+-    cpu_abort(env, "cp%i insn %08x\n", op1, insn);
+-    return 0;
+-}
+-
+-void HELPER(set_cp0)(CPUUniCore32State *env, uint32_t insn, uint32_t val)
+-{
+-    cpu_abort(env, "cp0 insn %08x\n", insn);
+-}
+-
+-uint32_t HELPER(get_cp0)(CPUUniCore32State *env, uint32_t insn)
+-{
+-    cpu_abort(env, "cp0 insn %08x\n", insn);
+-    return 0;
+-}
+-
+-void HELPER(set_r29_banked)(CPUUniCore32State *env, uint32_t mode, uint32_t val)
+-{
+-    cpu_abort(env, "banked r29 write\n");
+-}
+-
+-uint32_t HELPER(get_r29_banked)(CPUUniCore32State *env, uint32_t mode)
+-{
+-    cpu_abort(env, "banked r29 read\n");
+-    return 0;
+-}
+-
+ /* UniCore-F64 support.  We follow the convention used for F64 instrunctions:
+    Single precition routines have a "s" suffix, double precision a
+    "d" suffix.  */
+diff --git a/target-unicore32/helper.h b/target-unicore32/helper.h
+index 5a3b8a4..305318a 100644
+--- a/target-unicore32/helper.h
++++ b/target-unicore32/helper.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2010-2011 GUAN Xue-tao
++ * Copyright (C) 2010-2012 Guan Xuetao
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -8,6 +8,12 @@
+  */
+ #include "def-helper.h"
+ 
++#ifndef CONFIG_USER_ONLY
++DEF_HELPER_4(cp0_set, void, env, i32, i32, i32)
++DEF_HELPER_3(cp0_get, i32, env, i32, i32)
++DEF_HELPER_1(cp1_putc, void, i32)
++#endif
++
+ DEF_HELPER_1(clz, i32, i32)
+ DEF_HELPER_1(clo, i32, i32)
+ 
+@@ -16,12 +22,6 @@ DEF_HELPER_1(exception, void, i32)
+ DEF_HELPER_2(asr_write, void, i32, i32)
+ DEF_HELPER_0(asr_read, i32)
+ 
+-DEF_HELPER_3(set_cp0, void, env, i32, i32)
+-DEF_HELPER_2(get_cp0, i32, env, i32)
+-
+-DEF_HELPER_3(set_cp, void, env, i32, i32)
+-DEF_HELPER_2(get_cp, i32, env, i32)
+-
+ DEF_HELPER_1(get_user_reg, i32, i32)
+ DEF_HELPER_2(set_user_reg, void, i32, i32)
+ 
+@@ -38,9 +38,6 @@ DEF_HELPER_2(shr_cc, i32, i32, i32)
+ DEF_HELPER_2(sar_cc, i32, i32, i32)
+ DEF_HELPER_2(ror_cc, i32, i32, i32)
+ 
+-DEF_HELPER_2(get_r29_banked, i32, env, i32)
+-DEF_HELPER_3(set_r29_banked, void, env, i32, i32)
+-
+ DEF_HELPER_1(ucf64_get_fpscr, i32, env)
+ DEF_HELPER_2(ucf64_set_fpscr, void, env, i32)
+ 
+diff --git a/target-unicore32/translate.c b/target-unicore32/translate.c
+index 9793d14..e37d5be 100644
+--- a/target-unicore32/translate.c
++++ b/target-unicore32/translate.c
+@@ -1,7 +1,7 @@
+ /*
+  *  UniCore32 translation
+  *
+- * Copyright (C) 2010-2011 GUAN Xue-tao
++ * Copyright (C) 2010-2012 Guan Xuetao
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -176,6 +176,73 @@ static void store_reg(DisasContext *s, int reg, TCGv var)
+                         "Illegal UniCore32 instruction %x at line %d!", \
+                         insn, __LINE__)
+ 
++#ifndef CONFIG_USER_ONLY
++static void disas_cp0_insn(CPUUniCore32State *env, DisasContext *s,
++        uint32_t insn)
++{
++    TCGv tmp, tmp2, tmp3;
++    if ((insn & 0xfe000000) == 0xe0000000) {
++        tmp2 = new_tmp();
++        tmp3 = new_tmp();
++        tcg_gen_movi_i32(tmp2, UCOP_REG_N);
++        tcg_gen_movi_i32(tmp3, UCOP_IMM10);
++        if (UCOP_SET_L) {
++            tmp = new_tmp();
++            gen_helper_cp0_get(tmp, cpu_env, tmp2, tmp3);
++            store_reg(s, UCOP_REG_D, tmp);
++        } else {
++            tmp = load_reg(s, UCOP_REG_D);
++            gen_helper_cp0_set(cpu_env, tmp, tmp2, tmp3);
++            dead_tmp(tmp);
++        }
++        dead_tmp(tmp2);
++        dead_tmp(tmp3);
++        return;
++    }
++    ILLEGAL;
++}
++
++static void disas_ocd_insn(CPUUniCore32State *env, DisasContext *s,
++        uint32_t insn)
++{
++    TCGv tmp;
++
++    if ((insn & 0xff003fff) == 0xe1000400) {
++        /*
++         * movc rd, pp.nn, #imm9
++         *      rd: UCOP_REG_D
++         *      nn: UCOP_REG_N (must be 0)
++         *      imm9: 0
++         */
++        if (UCOP_REG_N == 0) {
++            tmp = new_tmp();
++            tcg_gen_movi_i32(tmp, 0);
++            store_reg(s, UCOP_REG_D, tmp);
++            return;
++        } else {
++            ILLEGAL;
++        }
++    }
++    if ((insn & 0xff003fff) == 0xe0000401) {
++        /*
++         * movc pp.nn, rn, #imm9
++         *      rn: UCOP_REG_D
++         *      nn: UCOP_REG_N (must be 1)
++         *      imm9: 1
++         */
++        if (UCOP_REG_N == 1) {
++            tmp = load_reg(s, UCOP_REG_D);
++            gen_helper_cp1_putc(tmp);
++            dead_tmp(tmp);
++            return;
++        } else {
++            ILLEGAL;
++        }
++    }
++    ILLEGAL;
++}
++#endif
++
+ static inline void gen_set_asr(TCGv var, uint32_t mask)
+ {
+     TCGv tmp_mask = tcg_const_i32(mask);
+@@ -1124,9 +1191,18 @@ static void gen_exception_return(DisasContext *s, TCGv pc)
+     s->is_jmp = DISAS_UPDATE;
+ }
+ 
+-static void disas_coproc_insn(CPUUniCore32State *env, DisasContext *s, uint32_t insn)
++static void disas_coproc_insn(CPUUniCore32State *env, DisasContext *s,
++        uint32_t insn)
+ {
+     switch (UCOP_CPNUM) {
++#ifndef CONFIG_USER_ONLY
++    case 0:
++        disas_cp0_insn(env, s, insn);
++        break;
++    case 1:
++        disas_ocd_insn(env, s, insn);
++        break;
++#endif
+     case 2:
+         disas_ucf64_insn(env, s, insn);
+         break;
+-- 
+1.7.9.5
+

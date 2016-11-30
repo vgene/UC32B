@@ -1,0 +1,76 @@
+From 24cf50a32c949a20ed562eae1682d8cec6c0392a Mon Sep 17 00:00:00 2001
+From: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Date: Fri, 28 Dec 2012 11:39:36 +0800
+Subject: [PATCH 200/247] unicore64-softmmu: Add kernel print trace
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |   11 ++++++++++-
+ trace-events              |    2 ++
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 21d9b6b..ac7a979 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -8,6 +8,7 @@
+ #include "helper.h"
+ #include "host-utils.h"
+ #include "console.h"
++#include "trace.h"
+ 
+ #define DEBUG_UC64
+ 
+@@ -48,27 +49,35 @@ static void putc_on_screen(unsigned char ch)
+ {
+     static WINDOW *localwin;
+     static int init;
++    static char buf[256];
++    static char *p;
+ 
+     if (!init) {
+         /* Assume 80 * 30 screen to minimize the implementation */
+         localwin = newwin(30, 80, 0, 0);
+         scrollok(localwin, TRUE);
+         init = TRUE;
++        p = buf;
+     }
+ 
+     if (isprint(ch)) {
+         wprintw(localwin, "%c", ch);
++        *p++ = ch;
+     } else {
+         switch (ch) {
+         case '\n':
+             wprintw(localwin, "\n", ch);
++            *p++ = '\0';
++            trace_uc64_kernel(buf);
++            p = buf;
+             break;
+         case '\r':
+             /* If '\r' is put before '\n', the curses window will destroy the
+              * last print line. And meanwhile, '\n' implifies '\r' inside. */
+             break;
+         case '\t':
+-            wprintw(localwin, "\t", ch);
++            wprintw(localwin, "%c", ch);
++            *p++ = ch;
+             break;
+         default: /* Not handled, so just print it hex code */
+             wprintw(localwin, "-- 0x%x --", ch);
+diff --git a/trace-events b/trace-events
+index b0b0631..7474c4e 100644
+--- a/trace-events
++++ b/trace-events
+@@ -891,6 +891,8 @@ win_helper_retry(uint32_t tl) "tl=%d"
+ uc64_cpu_handle_mmu_fault(uint64_t va, uint64_t pa, uint64_t pc) ": va %16." PRIx64 " pa %16." PRIx64 " pc %16." PRIx64
+ uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRIx64 " retaddr %16." PRIx64
+ uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va %16." PRIx64 " desc %16." PRIx64 " code %d is_user %d"
++# target-unicore64/helper.c
++uc64_kernel(const char *str) ": %s"
+ 
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+-- 
+1.7.9.5
+

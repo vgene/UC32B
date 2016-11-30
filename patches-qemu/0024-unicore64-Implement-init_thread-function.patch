@@ -1,0 +1,29 @@
+From 7ad7044a69042e737a0cd8f82370d36c162ed12d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 6 Aug 2012 20:54:51 +0800
+Subject: [PATCH 024/247] unicore64: Implement init_thread function
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ linux-user/elfload.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/linux-user/elfload.c b/linux-user/elfload.c
+index 804932a..da9f418 100644
+--- a/linux-user/elfload.c
++++ b/linux-user/elfload.c
+@@ -491,9 +491,8 @@ static void elf_core_copy_regs(target_elf_gregset_t *regs, const CPUUniCore32Sta
+ static inline void init_thread(struct target_pt_regs *regs,
+         struct image_info *infop)
+ {
+-    /* UNICORE64 TODO */
+-    printf("%s not supported yet, in file %s line %d\n", __func__, __FILE__, __LINE__);
+-    abort();
++    regs->UC64_R31 = infop->entry;
++    regs->UC64_R29 = infop->start_stack;
+ }
+ 
+ #define ELF_NREG    36
+-- 
+1.7.9.5
+

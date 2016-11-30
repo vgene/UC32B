@@ -1,0 +1,509 @@
+From 405523dff4081702ea98e4f5ce805edc12efb947 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 22:14:43 +0800
+Subject: [PATCH 142/247] unicore64-softmmu: Add fake cp0-intc/itm support
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ default-configs/unicore64-softmmu.mak |    1 +
+ hw/Makefile.objs                      |    3 +
+ hw/puv4.c                             |   31 +++++++
+ hw/puv4.h                             |   18 ++++
+ hw/puv4_cp0_intc.c                    |  127 ++++++++++++++++++++++++++++
+ hw/puv4_cp0_itm.c                     |  149 +++++++++++++++++++++++++++++++++
+ target-unicore64/softmmu.c            |   14 +++-
+ target-unicore64/translate.c          |   31 ++++++-
+ 8 files changed, 369 insertions(+), 5 deletions(-)
+ create mode 100644 hw/puv4_cp0_intc.c
+ create mode 100644 hw/puv4_cp0_itm.c
+
+diff --git a/default-configs/unicore64-softmmu.mak b/default-configs/unicore64-softmmu.mak
+index 286d008..b717754 100644
+--- a/default-configs/unicore64-softmmu.mak
++++ b/default-configs/unicore64-softmmu.mak
+@@ -1,2 +1,3 @@
+ # Default configuration for unicore64-softmmu
+ CONFIG_PUV4=y
++CONFIG_PTIMER=y
+diff --git a/hw/Makefile.objs b/hw/Makefile.objs
+index 6df346a..9f32744 100644
+--- a/hw/Makefile.objs
++++ b/hw/Makefile.objs
+@@ -73,6 +73,9 @@ hw-obj-$(CONFIG_PUV3) += puv3_gpio.o
+ hw-obj-$(CONFIG_PUV3) += puv3_pm.o
+ hw-obj-$(CONFIG_PUV3) += puv3_dma.o
+ 
++hw-obj-$(CONFIG_PUV4) += puv4_cp0_intc.o
++hw-obj-$(CONFIG_PUV4) += puv4_cp0_itm.o
++
+ # PCI watchdog devices
+ hw-obj-$(CONFIG_PCI) += wdt_i6300esb.o
+ 
+diff --git a/hw/puv4.c b/hw/puv4.c
+index d5b61a8..3344a1d 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -12,6 +12,36 @@
+ #define KERNEL_LOAD_ADDR        0x03000000
+ #define KERNEL_MAX_SIZE         0x00800000 /* Just a guess */
+ 
++static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
++{
++    CPUUniCore64State *env = opaque;
++
++    assert(irq == 0);
++    if (level) {
++        cpu_interrupt(env, CPU_INTERRUPT_HARD);
++    } else {
++        cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
++    }
++}
++
++static void uc64_intc_cpu_init(CPUUniCore64State *env)
++{
++    qemu_irq *cpu_intc, irqs[6];
++    DeviceState *dev;
++    int i;
++
++    /* Initialize interrupt controller */
++    cpu_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 1);
++    dev = sysbus_create_varargs("uc64_intc", UC64_CP0_INTC_BASE,
++            *cpu_intc, *(cpu_intc + 1), *(cpu_intc + 2),
++            *(cpu_intc + 3), *(cpu_intc + 4), *(cpu_intc + 5));
++    for (i = 0; i < 6; i++) {
++        irqs[i] = qdev_get_gpio_in(dev, i);
++    }
++
++    sysbus_create_simple("uc64_itm", UC64_CP0_ITM_BASE, irqs[UC64_INTR_ITM]);
++}
++
+ static void puv4_board_init(CPUUniCore64State *env, ram_addr_t ram_size)
+ {
+     MemoryRegion *ram_memory = g_new(MemoryRegion, 1);
+@@ -58,6 +88,7 @@ static void puv4_init(ram_addr_t ram_size, const char *boot_device,
+         hw_error("Unable to find CPU definition\n");
+     }
+ 
++    uc64_intc_cpu_init(env);
+     puv4_board_init(env, ram_size);
+     puv4_load_kernel(kernel_filename);
+ }
+diff --git a/hw/puv4.h b/hw/puv4.h
+index 3278270..0d6e97d 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -8,4 +8,22 @@
+ #define DPRINTF(fmt, ...) do {} while (0)
+ #endif
+ 
++#define PUV4_REGS_OFFSET        (0x1000) /* 4K is reasonable */
++
++/* Hardware interrupts */
++#define UC64_INTR_NUM           (7)
++#define UC64_INTR_SMP           (0)
++#define UC64_INTR_LSU           (1)
++#define UC64_INTR_ITM           (2)
++#define UC64_INTR_OTM           (3)
++#define UC64_INTR_DEV           (4)
++#define UC64_INTR_PFM           (5)
++
++#define UC64_CP0_INTRTYPE_ITM   (1 << 7)
++
++#define UC64_CP0_INTC_BASE      (0xf10000000) /* FAKE */
++#define UC64_CP0_ITM_BASE       (0xf20000000) /* FAKE */
++
++extern uint64_t cp0_c10_0_INTR_TYPE;
++
+ #endif /* !QEMU_HW_PUV4_H */
+diff --git a/hw/puv4_cp0_intc.c b/hw/puv4_cp0_intc.c
+new file mode 100644
+index 0000000..b5a1bb1
+--- /dev/null
++++ b/hw/puv4_cp0_intc.c
+@@ -0,0 +1,127 @@
++/*
++ * Fake CP0 INTC device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "sysbus.h"
++
++#define DEBUG_PUV4
++#include "puv4.h"
++
++uint64_t cp0_c10_0_INTR_TYPE = 0; /* p0.c10 #0 : interrupt type */
++
++/* puv4 intc implementation. */
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    qemu_irq parent_irq;
++
++    uint64_t reg_FAKEICMR; /* in fact, it's asr */
++} UC64CP0State;
++
++static uint64_t uc64_cp0_intc_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    uint64_t ret = 0;
++
++    DPRINTF("offset 0x%x, value 0x%" PRIx64 "\n", (int)offset, ret);
++    return ret;
++}
++
++static void uc64_cp0_intc_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    UC64CP0State *s = opaque;
++
++    switch (offset) {
++    case 0x10: /* fake asr */
++        s->reg_FAKEICMR = value;
++        break;
++    case 0x14: /* MSB 32 bit, the value is 0 */
++        break;
++    default:
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++}
++
++static const MemoryRegionOps uc64_cp0_intc_ops = {
++    .read = uc64_cp0_intc_read,
++    .write = uc64_cp0_intc_write,
++    .impl = {
++        .min_access_size = 8,
++        .max_access_size = 8,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++/* Process a change in an external INTC input. */
++static void uc64_cp0_intc_handler(void *opaque, int irq, int level)
++{
++    UC64CP0State *s = opaque;
++    int raise_parent_irq = false;
++
++    if (irq != UC64_INTR_ITM) { /* ITIMER */
++        DPRINTF("irq 0x%x, level 0x%x\n", irq, level);
++        abort();
++    } else {
++        irq = UC64_CP0_INTRTYPE_ITM;
++    }
++
++    if (level) {
++        cp0_c10_0_INTR_TYPE |= irq;
++        if (!(s->reg_FAKEICMR & UC64_CP0_INTRTYPE_ITM)) {
++            raise_parent_irq = true;
++        }
++    } else {
++        cp0_c10_0_INTR_TYPE &= ~irq;
++    }
++
++    /* Update interrupt status after enabled or pending bits have been changed.  */
++    if (raise_parent_irq) {
++        qemu_irq_raise(s->parent_irq);
++    } else {
++        qemu_irq_lower(s->parent_irq);
++    }
++}
++
++static int uc64_cp0_intc_init(SysBusDevice *dev)
++{
++    UC64CP0State *s = FROM_SYSBUS(UC64CP0State, dev);
++
++    DPRINTF("%s\n", __func__);
++    /* Why not 6 times */
++    qdev_init_gpio_in(&s->busdev.qdev, uc64_cp0_intc_handler, 6);
++    sysbus_init_irq(&s->busdev, &s->parent_irq);
++
++    memory_region_init_io(&s->iomem, &uc64_cp0_intc_ops, s, "uc64_intc",
++            PUV4_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void uc64_cp0_intc_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = uc64_cp0_intc_init;
++}
++
++static const TypeInfo uc64_cp0_intc_info = {
++    .name = "uc64_intc",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(UC64CP0State),
++    .class_init = uc64_cp0_intc_class_init,
++};
++
++static void uc64_cp0_intc_register_type(void)
++{
++    type_register_static(&uc64_cp0_intc_info);
++}
++
++type_init(uc64_cp0_intc_register_type)
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+new file mode 100644
+index 0000000..d4335ad
+--- /dev/null
++++ b/hw/puv4_cp0_itm.c
+@@ -0,0 +1,149 @@
++/*
++ * Fake CP0 ITM device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "sysbus.h"
++#include "ptimer.h"
++
++#define DEBUG_PUV4
++#include "puv4.h"
++
++/* puv4 ostimer implementation. */
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    QEMUBH *bh;
++    qemu_irq irq_itimer;
++    ptimer_state *ptimer;
++
++    uint64_t reg_ITIMERCR; /* p0.c10 #9 : itimer counter reg */
++    uint64_t reg_ITIMERMR; /* p0.c10 #10: itimer match reg */
++} UC64CP0State;
++
++static uint64_t uc64_cp0_itm_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    UC64CP0State *s = opaque;
++    uint64_t ret = 0;
++
++    switch (offset) {
++    case 0x00: /* Interrupt type */
++    case 0x04:
++        ret = cp0_c10_0_INTR_TYPE;
++        break;
++    case 0x90: /* Counter Register */
++    case 0x94:
++        ret = s->reg_ITIMERMR - (uint64_t)ptimer_get_count(s->ptimer);
++        break;
++    default:
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++
++    if (offset & 0x4) { /* MSB 32 bit */
++        return (uint32_t)(ret >> 32);
++    } else { /* LSB 32 bit */
++        return (uint32_t)ret;
++    }
++}
++
++static void uc64_cp0_itm_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    UC64CP0State *s = opaque;
++
++    switch (offset) {
++    case 0x00: /* Interrupt type */
++        if (cp0_c10_0_INTR_TYPE & UC64_CP0_INTRTYPE_ITM) {
++            cp0_c10_0_INTR_TYPE &= ~UC64_CP0_INTRTYPE_ITM;
++            qemu_irq_lower(s->irq_itimer);
++        }
++        break;
++    case 0x04: /* MSB 32bit of interrupt type */
++        break;
++    case 0xa0: /* Match Register */
++        s->reg_ITIMERMR = value;
++        break;
++    case 0xa4: /* MSB 32bit of Match Register */
++        s->reg_ITIMERMR |= (value << 32);
++        if (s->reg_ITIMERMR > s->reg_ITIMERCR) {
++            ptimer_set_count(s->ptimer, s->reg_ITIMERMR - s->reg_ITIMERCR);
++        } else {
++            ptimer_set_count(s->ptimer, s->reg_ITIMERMR +
++                    (0xffffffffffffffff - s->reg_ITIMERCR));
++        }
++        ptimer_run(s->ptimer, 2);
++        break;
++    default:
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++}
++
++static const MemoryRegionOps uc64_cp0_itm_ops = {
++    .read = uc64_cp0_itm_read,
++    .write = uc64_cp0_itm_write,
++    .impl = {
++        .min_access_size = 8,
++        .max_access_size = 8,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static void uc64_cp0_itm_tick(void *opaque)
++{
++    UC64CP0State *s = opaque;
++
++    DPRINTF("Itimer hit when counter from 0x%" PRIx64 " to 0x%" PRIx64 "!\n",
++            s->reg_ITIMERCR, s->reg_ITIMERMR);
++
++    s->reg_ITIMERCR = s->reg_ITIMERMR;
++    cp0_c10_0_INTR_TYPE |= UC64_CP0_INTRTYPE_ITM;
++    qemu_irq_raise(s->irq_itimer);
++}
++
++static int uc64_cp0_itm_init(SysBusDevice *dev)
++{
++    UC64CP0State *s = FROM_SYSBUS(UC64CP0State, dev);
++
++    DPRINTF("%s\n", __func__);
++    s->reg_ITIMERCR = 0;
++    s->reg_ITIMERMR = 0;
++
++    sysbus_init_irq(dev, &s->irq_itimer);
++
++    s->bh = qemu_bh_new(uc64_cp0_itm_tick, s);
++    s->ptimer = ptimer_init(s->bh);
++    ptimer_set_freq(s->ptimer, 50 * 1000 * 1000);
++
++    memory_region_init_io(&s->iomem, &uc64_cp0_itm_ops, s, "uc64_itm",
++            PUV4_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void uc64_cp0_itm_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = uc64_cp0_itm_init;
++}
++
++static const TypeInfo uc64_cp0_itm_info = {
++    .name = "uc64_itm",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(UC64CP0State),
++    .class_init = uc64_cp0_itm_class_init,
++};
++
++static void uc64_cp0_itm_register_type(void)
++{
++    type_register_static(&uc64_cp0_itm_info);
++}
++
++type_init(uc64_cp0_itm_register_type)
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index a5b8a13..35cf52d 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -232,8 +232,20 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+         page_size = TARGET_PAGE_SIZE;
+         ret = 0;
+     } else {
+-        ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
++        if ((address & 0xffffffff00000000) == 0xf00000000) {
++            /* IO memory */
++            phys_addr = address;
++            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
++            page_size = TARGET_PAGE_SIZE;
++            ret = 0;
++        } else {
++            ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
+                             &prot, &page_size);
++        }
++        if ((address & 0xfffffff000000000) != 0xfffffff000000000) {
++            DPRINTF("%s: va %" PRIx64 " pa %" PRIx64 " pc %" PRIx64 "\n",
++                    __func__, address, phys_addr, env->regs[31]);
++        }
+     }
+ 
+     if (ret == 0) {
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 7e66074..3656c61 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -99,6 +99,15 @@ typedef struct DisasContext {
+ #define gen_store_cpu_field(t_op_64, name)               \
+     tcg_gen_st_i64(t_op_64, cpu_env, offsetof(CPUUniCore64State, name))
+ 
++static inline void gen_write_fakeicmr(TCGv_i64 t_flag_64)
++{
++    TCGv_i64 t_addr_64 = tcg_temp_new_i64();
++
++    tcg_gen_movi_i64(t_addr_64, 0xf10000010);
++    tcg_gen_qemu_st64(t_flag_64, t_addr_64, 1);
++    tcg_temp_free_i64(t_addr_64);
++}
++
+ /* Set flags from result.  */
+ static inline void gen_flags_logic(TCGv_i64 var_rd)
+ {
+@@ -756,6 +765,7 @@ static void do_srfr(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             break;
+         case 1: /* !F &&  C : asr */
+             gen_helper_asr_write(t_flag_64);
++            gen_write_fakeicmr(t_flag_64);
+             break;
+         case 2: /*  F && !C : bfr */
+             gen_store_cpu_field(t_flag_64, bfr);
+@@ -1162,6 +1172,7 @@ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+                 gen_load_cpu_field(cpu_R[31], cp0.c4_epc);
+                 gen_load_cpu_field(tmp, bsr);
+                 gen_helper_asr_write(tmp);
++                gen_write_fakeicmr(tmp);
+                 gen_load_cpu_field(tmp, bfr);
+                 gen_helper_afr_write(tmp);
+                 tcg_temp_free_i64(tmp);
+@@ -1196,15 +1207,25 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+         t_creg_64 = tcg_temp_new_i64();
+         t_cop_64 = tcg_temp_new_i64();
+-        tcg_gen_movi_i64(t_creg_64, UCOP_REG_S1);
+         tcg_gen_movi_i64(t_cop_64, UCOP_IMM_9);
+         if (UCOP_SET(25)) { /* load */
+-            gen_helper_cp0_get(t_creg_64, cpu_env, t_creg_64, t_cop_64);
++            tcg_gen_movi_i64(t_creg_64, UCOP_REG_S1);
++            if (UCOP_REG_S1 == 10) { /* Special handler for creg10 */
++                tcg_gen_movi_i64(t_cop_64, 0xf20000000 | (UCOP_IMM_9 << 4));
++                tcg_gen_qemu_ld64(t_creg_64, t_cop_64, 1);
++            } else {
++                gen_helper_cp0_get(t_creg_64, cpu_env, t_creg_64, t_cop_64);
++            }
+             tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_creg_64);
+         } else { /* store */
+             tcg_gen_movi_i64(t_creg_64, UCOP_REG_D);
+-            gen_helper_cp0_set(cpu_env, cpu_R[UCOP_REG_S1],
+-                               t_creg_64, t_cop_64);
++            if (UCOP_REG_D == 10) { /* Special handler for creg10 */
++                tcg_gen_movi_i64(t_cop_64, 0xf20000000 | (UCOP_IMM_9 << 4));
++                tcg_gen_qemu_st64(cpu_R[UCOP_REG_S1], t_cop_64, 1);
++            } else {
++                gen_helper_cp0_set(cpu_env, cpu_R[UCOP_REG_S1], t_creg_64,
++                        t_cop_64);
++            }
+         }
+         tcg_temp_free(t_creg_64);
+         tcg_temp_free(t_cop_64);
+@@ -1489,6 +1510,8 @@ void cpu_dump_state(CPUUniCore64State *env, FILE *f,
+     cpu_fprintf(f, " NF=%16" PRIx64 "  ZF=%16" PRIx64
+             "  CF=%16" PRIx64 "  VF=%16" PRIx64 "\n",
+             env->NF, env->ZF, env->CF, env->VF);
++    cpu_fprintf(f, "ASR=%16" PRIx64 " BSR=%16" PRIx64 "\n",
++            env->uncached_asr, env->bsr);
+ }
+ 
+ void restore_state_to_opc(CPUUniCore64State *env, TranslationBlock *tb,
+-- 
+1.7.9.5
+

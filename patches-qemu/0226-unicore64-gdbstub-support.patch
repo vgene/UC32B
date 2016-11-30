@@ -1,0 +1,358 @@
+From a66c205b6f97a28ba2228bcd6e134b7f69383091 Mon Sep 17 00:00:00 2001
+From: HeDan <hedan@mprc.pku.edu.cn>
+Date: Tue, 26 Feb 2013 10:21:00 +0800
+Subject: [PATCH 226/247] unicore64: gdbstub support
+
+Signed-off-by: HeDan <hedan@mprc.pku.edu.cn>
+---
+ configure                                |    1 +
+ default-configs/unicore64-linux-user.mak |    1 +
+ default-configs/unicore64-softmmu.mak    |    1 +
+ gdb-xml/unicore64-core.xml               |   59 ++++++++++++++++++++++++++
+ gdbstub.c                                |   67 ++++++++++++++++++++++++++++++
+ linux-user/main.c                        |   14 +++++++
+ target-unicore64/cpu.h                   |    7 ++++
+ target-unicore64/helper.c                |   12 ++++++
+ target-unicore64/softmmu.c               |   13 +++++-
+ target-unicore64/translate.c             |   30 ++++++++++++-
+ 10 files changed, 201 insertions(+), 4 deletions(-)
+ create mode 100644 gdb-xml/unicore64-core.xml
+
+diff --git a/configure b/configure
+index 5805cbb..58f0313 100755
+--- a/configure
++++ b/configure
+@@ -3745,6 +3745,7 @@ case "$target_arch2" in
+   ;;
+   unicore64)
+     target_phys_bits=64
++    gdb_xml_files="unicore64-core.xml"
+   ;;
+   xtensa|xtensaeb)
+     TARGET_ARCH=xtensa
+diff --git a/default-configs/unicore64-linux-user.mak b/default-configs/unicore64-linux-user.mak
+index 6aafd21..eab8961 100644
+--- a/default-configs/unicore64-linux-user.mak
++++ b/default-configs/unicore64-linux-user.mak
+@@ -1 +1,2 @@
+ # Default configuration for unicore32-linux-user
++CONFIG_GDBSTUB_XML=y
+diff --git a/default-configs/unicore64-softmmu.mak b/default-configs/unicore64-softmmu.mak
+index 88259ea..9f6f19b 100644
+--- a/default-configs/unicore64-softmmu.mak
++++ b/default-configs/unicore64-softmmu.mak
+@@ -2,3 +2,4 @@
+ CONFIG_PUV4=y
+ CONFIG_PTIMER=y
+ CONFIG_PCKBD=y
++CONFIG_GDBSTUB_XML=y
+diff --git a/gdb-xml/unicore64-core.xml b/gdb-xml/unicore64-core.xml
+new file mode 100644
+index 0000000..692a886
+--- /dev/null
++++ b/gdb-xml/unicore64-core.xml
+@@ -0,0 +1,59 @@
++<?xml version="1.0"?>
++
++<!DOCTYPE feature SYSTEM "gdb-target.dtd">
++<feature name="org.gnu.gdb.unicore64.regs">
++  <reg name="r0" bitsize="64"/>
++  <reg name="r1" bitsize="64"/>
++  <reg name="r2" bitsize="64"/>
++  <reg name="r3" bitsize="64"/>
++  <reg name="r4" bitsize="64"/>
++  <reg name="r5" bitsize="64"/>
++  <reg name="r6" bitsize="64"/>
++  <reg name="r7" bitsize="64"/>
++  <reg name="r8" bitsize="64"/>
++  <reg name="r9" bitsize="64"/>
++  <reg name="r10" bitsize="64"/>
++  <reg name="r11" bitsize="64"/>
++  <reg name="r12" bitsize="64"/>
++  <reg name="r13" bitsize="64"/>
++  <reg name="r14" bitsize="64"/>
++  <reg name="r15" bitsize="64"/>
++  <reg name="r16" bitsize="64"/>
++  <reg name="r17" bitsize="64"/>
++  <reg name="r18" bitsize="64"/>
++  <reg name="r19" bitsize="64"/>
++  <reg name="r20" bitsize="64"/>
++  <reg name="r21" bitsize="64"/>
++  <reg name="r22" bitsize="64"/>
++  <reg name="r23" bitsize="64"/>
++  <reg name="r24" bitsize="64"/>
++  <reg name="r25" bitsize="64"/>
++  <reg name="r26" bitsize="64"/>
++  <reg name="fp" bitsize="64"/>
++  <reg name="ip" bitsize="64"/>
++  <reg name="sp" bitsize="64" type="data_ptr"/>
++  <reg name="lr" bitsize="64"/>
++  <reg name="pc" bitsize="64" type="code_ptr"/>
++  <reg name="afr" bitsize="64"/>
++  <reg name="asr" bitsize="64"/>
++
++  <reg name="f0" bitsize="64" />
++  <reg name="f1" bitsize="64" />
++  <reg name="f2" bitsize="64" />
++  <reg name="f3" bitsize="64" />
++  <reg name="f4" bitsize="64" />
++  <reg name="f5" bitsize="64" />
++  <reg name="f6" bitsize="64" />
++  <reg name="f7" bitsize="64" />
++  <reg name="f8" bitsize="64" />
++  <reg name="f9" bitsize="64" />
++  <reg name="f10" bitsize="64" />
++  <reg name="f11" bitsize="64" />
++  <reg name="f12" bitsize="64" />
++  <reg name="f13" bitsize="64" />
++  <reg name="f14" bitsize="64" />
++  <reg name="f15" bitsize="64" />
++
++  <reg name="fpfr" bitsize="64" />
++  <reg name="fpsr" bitsize="64" />
++</feature>
+diff --git a/gdbstub.c b/gdbstub.c
+index 5d37dd9..2590040 100644
+--- a/gdbstub.c
++++ b/gdbstub.c
+@@ -1007,6 +1007,71 @@ static int cpu_gdb_write_register(CPUARMState *env, uint8_t *mem_buf, int n)
+     return 0;
+ }
+ 
++#elif defined(TARGET_UNICORE64)
++
++#define NUM_CORE_REGS 65
++#define GDB_CORE_XML "unicore64-core.xml"
++
++static int cpu_gdb_read_register(CPUUniCore64State *env,
++        uint8_t *mem_buf, int n)
++{
++    if (n < 32) {
++        /* Core integer register.  */
++        GET_REG64(env->regs[n]);
++    } else if (n == 32) {
++        /* AFR  */
++        GET_REG64(cpu_afr_read(env));
++    } else if (n == 33) {
++        /* ASR  */
++        GET_REG64(env->uncached_asr);
++    } else if (n < 50) {
++        /* Float ponit register */
++        GET_REG64(env->ucf64.regs[n]);
++    } else if (n == 50) {
++        /*  Float point flag register    */
++        GET_REG64(env->ucf64.fpfr);
++    } else if (n == 51) {
++        /*  Float point status register  */
++        GET_REG64(env->ucf64.fpsr);
++    }
++    /* Unknown register.  */
++    return 0;
++}
++
++static int cpu_gdb_write_register(CPUUniCore64State *env,
++        uint8_t *mem_buf, int n)
++{
++    uint64_t tmp;
++
++    tmp = ldl_p(mem_buf);
++
++    if (n == 31) {
++        tmp &= ~1;
++    }
++
++    if (n < 32) {
++        /* Core integer register.  */
++        env->regs[n] = tmp;
++    } else if (n == 32) {
++        /* AFR */
++        return 0;
++    } else if (n == 33) {
++        /* ASR */
++        return 0;
++    } else if (n < 50) {
++        /* Float point registers */
++        env->ucf64.regs[n] = tmp;
++    } else if (n == 50) {
++        /* FPFR */
++        return 0;
++    } else if (n == 51) {
++        /* FPSR */
++        return 0;
++    }
++    /* Unknown register.  */
++    return 0;
++}
++
+ #elif defined (TARGET_M68K)
+ 
+ #define NUM_CORE_REGS 18
+@@ -1998,6 +2063,8 @@ static void gdb_set_cpu_pc(GDBState *s, target_ulong pc)
+     s->c_cpu->pc = pc;
+ #elif defined(TARGET_XTENSA)
+     s->c_cpu->pc = pc;
++#elif defined(TARGET_UNICORE64)
++    s->c_cpu->regs[31] = pc;
+ #endif
+ }
+ 
+diff --git a/linux-user/main.c b/linux-user/main.c
+index 19bba1a..f2c7b39 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -1001,6 +1001,7 @@ void cpu_loop(CPUUniCore64State *env)
+ {
+     int trapnr;
+     unsigned int syscall_nr, insn;
++    target_siginfo_t info;
+ 
+     for (;;) {
+         cpu_exec_start(env);
+@@ -1023,6 +1024,19 @@ void cpu_loop(CPUUniCore64State *env)
+         case EXCP_INTERRUPT:
+             /* just indicate that signals should be handled asap */
+             break;
++        case EXCP_DEBUG:
++            {
++                int sig;
++
++                sig = gdb_handlesig(env, TARGET_SIGTRAP);
++                if (sig) {
++                    info.si_signo = sig;
++                    info.si_errno = 0;
++                    info.si_code = TARGET_TRAP_BRKPT;
++                    queue_signal(env, info.si_signo, &info);
++                }
++            }
++            break;
+         default:
+             goto error;
+         }
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index f4bf67c..6c31455 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -22,6 +22,7 @@
+ #define CPUArchState                    struct CPUUniCore64State
+ 
+ #define NB_MMU_MODES                     2
++#define TARGET_HAS_ICE                   1
+ 
+ #include "config.h"
+ #include "qemu-common.h"
+@@ -112,6 +113,12 @@ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+ /* Set the ASR.  Note that some bits of mask must be all-set or all-clear.  */
+ void cpu_asr_write(CPUUniCore64State *env, target_ulong val, target_ulong msk);
+ 
++
++/* Return the current AFR value.  */
++target_ulong cpu_afr_read(CPUUniCore64State *env1);
++/* Set the AFR.  Note that some bits of mask must be all-set or all-clear.  */
++void cpu_afr_write(CPUUniCore64State *env, target_ulong val, target_ulong msk);
++
+ #define cpu_init                        uc64_cpu_init
+ #define cpu_exec                        uc64_cpu_exec
+ #define cpu_signal_handler              uc64_cpu_signal_handler
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 3e6be1f..5ba0548 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -142,6 +142,18 @@ uint64_t HELPER(afr_read)(void)
+     return AFR_READ(env);
+ }
+ 
++target_ulong cpu_afr_read(CPUUniCore64State *env1)
++{
++    CPUUniCore64State *saved_env;
++    target_ulong ret;
++
++    saved_env = env;
++    env = env1;
++    ret = AFR_READ(env1);
++    env = saved_env;
++    return ret;
++}
++
+ uint64_t HELPER(asr_read)(void)
+ {
+     return env->uncached_asr;
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index af3dfa4..0d3f26a 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -280,6 +280,15 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+ target_phys_addr_t cpu_get_phys_page_debug(CPUUniCore64State *env,
+         target_ulong addr)
+ {
+-    cpu_abort(env, "%s not supported yet\n", __func__);
+-    return addr;
++    target_phys_addr_t phys_addr;
++    target_ulong page_size;
++    int prot;
++    int ret;
++    ret = get_phys_addr(env, addr, 0, 0, &phys_addr, &prot, &page_size);
++
++    if (ret != 0) {
++        return -1;
++    }
++
++    return phys_addr;
+ }
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 540b582..4da7852 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -119,6 +119,19 @@ typedef struct DisasContext {
+ #define gen_store_cpu_field(t_op_64, name)               \
+     tcg_gen_st_i64(t_op_64, cpu_env, offsetof(CPUUniCore64State, name))
+ 
++static inline void gen_set_pc_im(uint64_t val)
++{
++    tcg_gen_movi_i64(cpu_R[31], val);
++}
++
++static void gen_exception(int excp)
++{
++    TCGv_i32 tmp = tcg_temp_new_i32();
++    tcg_gen_movi_i32(tmp, excp);
++    gen_helper_exception(tmp);
++    tcg_temp_free_i32(tmp);
++}
++
+ /* Set flags from result.  */
+ static inline void gen_flags_logic(TCGv_i64 var_rd)
+ {
+@@ -1468,6 +1481,7 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+ {
+     DisasContext dc1, *dc = &dc1;
+     target_ulong pc_start;
++    CPUBreakpoint *bp;
+     int j, lj;
+     int num_insns;
+     int max_insns;
+@@ -1497,8 +1511,20 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+ 
+     gen_icount_start();
+     do {
+-        UNHANDLED_FLOW(unlikely(!QTAILQ_EMPTY(&env->breakpoints)));
+-
++        if (unlikely(!QTAILQ_EMPTY(&env->breakpoints))) {
++            QTAILQ_FOREACH(bp, &env->breakpoints, entry) {
++                if (bp->pc == dc->dc_pc) {
++                    gen_set_pc_im(dc->dc_pc);
++                    gen_exception(EXCP_DEBUG);
++                    dc->dc_jmp = DISAS_JUMP;
++                    /* Advance PC so that clearing the breakpoint will
++                     *                      invalidate this TB.  */
++                    dc->dc_pc += 4; /* FIXME */
++                    goto done_disas_loop;
++                    break;
++                }
++            }
++        }
+         if (search_pc) {
+             j = gen_opc_ptr - gen_opc_buf;
+             if (lj < j) {
+-- 
+1.7.9.5
+

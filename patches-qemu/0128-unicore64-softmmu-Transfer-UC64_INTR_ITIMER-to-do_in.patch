@@ -1,0 +1,54 @@
+From 5323d7ed0478d88b8af0336053605bf742158a8d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 17:39:54 +0800
+Subject: [PATCH 128/247] unicore64-softmmu: Transfer UC64_INTR_ITIMER to
+ do_interrupt
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ cpu-exec.c                 |    1 +
+ target-unicore64/cpu.h     |    2 +-
+ target-unicore64/softmmu.c |    2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index ad6b249..763cd65 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -456,6 +456,7 @@ int cpu_exec(CPUArchState *env)
+ #elif defined(TARGET_UNICORE64)
+                     if (interrupt_request & CPU_INTERRUPT_HARD
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
++                        env->exception_index = UC64_INTR_ITIMER;
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 9f6537b..262a912 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -92,7 +92,7 @@ typedef struct CPUUniCore64State {
+ #define UC64_EXCP_PRIV          0x08
+ #define UC64_EXCP_ITRAP         0x0c
+ #define UC64_EXCP_DTRAP         0x10
+-#define UC64_INT_TIMER          0x20
++#define UC64_INTR_ITIMER        0x20
+ 
+ /* Return the current ASR value.  */
+ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index db9cf3b..d8a65c6 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -120,7 +120,7 @@ void do_interrupt(CPUUniCore64State *env)
+         DPRINTF("dtrap happend at %x\n", env->regs[31]);
+         addr = UC64_EXCP_DTRAP;
+         break;
+-    case UC64_INT_TIMER:
++    case UC64_INTR_ITIMER:
+     default:
+         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
+         return;
+-- 
+1.7.9.5
+

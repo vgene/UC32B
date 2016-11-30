@@ -1,0 +1,84 @@
+From aed1198bb9cace8c24a82521520ceb3be87054f4 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 6 Aug 2012 21:11:05 +0800
+Subject: [PATCH 025/247] unicore64: Add minimized cpu_loop
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ linux-user/elfload.c           |    2 +-
+ linux-user/main.c              |   22 ++++++++++++++++++++--
+ linux-user/unicore64/syscall.h |    4 +++-
+ 3 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/linux-user/elfload.c b/linux-user/elfload.c
+index da9f418..b1fbe9f 100644
+--- a/linux-user/elfload.c
++++ b/linux-user/elfload.c
+@@ -495,7 +495,7 @@ static inline void init_thread(struct target_pt_regs *regs,
+     regs->UC64_R29 = infop->start_stack;
+ }
+ 
+-#define ELF_NREG    36
++#define ELF_NREG                UC64_REGS_NUM
+ typedef target_elf_greg_t  target_elf_gregset_t[ELF_NREG];
+ 
+ /* UNICORE64 FIXME:
+diff --git a/linux-user/main.c b/linux-user/main.c
+index 8fd046f..4f09020 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -999,7 +999,25 @@ error:
+ #ifdef TARGET_UNICORE64
+ void cpu_loop(CPUUniCore64State *env)
+ {
+-    printf("%s not supported yet, in file %s line %d\n", __func__, __FILE__, __LINE__);
++    int trapnr;
++
++    for (;;) {
++        cpu_exec_start(env);
++        trapnr = uc64_cpu_exec(env);
++        cpu_exec_end(env);
++        switch (trapnr) {
++        case EXCP_INTERRUPT:
++            goto error; /* FIXME */
++            break;
++        default:
++            goto error;
++        }
++        process_pending_signals(env);
++    }
++
++error:
++    fprintf(stderr, "qemu: unhandled CPU exception 0x%x - aborting\n", trapnr);
++    cpu_dump_state(env, stderr, fprintf, 0);
+     abort();
+ }
+ #endif
+@@ -3795,7 +3813,7 @@ int main(int argc, char **argv, char **envp)
+ #elif defined(TARGET_UNICORE64)
+     {
+         int i;
+-        for (i = 0; i < 32; i++) {
++        for (i = 0; i < UC64_REGS_NUM; i++) {
+             env->regs[i] = regs->uc64_regs[i];
+         }
+     }
+diff --git a/linux-user/unicore64/syscall.h b/linux-user/unicore64/syscall.h
+index f2b94bd..3ba0bcc 100644
+--- a/linux-user/unicore64/syscall.h
++++ b/linux-user/unicore64/syscall.h
+@@ -4,8 +4,10 @@
+ #ifndef QEMU_UC64_SYSCALL_H
+ #define QEMU_UC64_SYSCALL_H
+ 
++#define UC64_REGS_NUM           36
++
+ struct target_pt_regs {
+-    abi_ulong uc64_regs[36];
++    abi_ulong uc64_regs[UC64_REGS_NUM];
+ };
+ 
+ #define UC64_R00                uc64_regs[0]
+-- 
+1.7.9.5
+

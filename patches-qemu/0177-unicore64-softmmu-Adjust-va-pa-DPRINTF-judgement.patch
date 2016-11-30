@@ -1,0 +1,31 @@
+From bf536d7e0a4e8e88b80a1ff41e62fa3f104d0a5d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 29 Aug 2012 09:58:21 +0800
+Subject: [PATCH 177/247] unicore64-softmmu: Adjust va->pa DPRINTF judgement
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 5497065..a6fd8bc 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -226,13 +226,10 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+         /* Following printf is only used for debug */
+         if ((address & 0xfffffff000000000ULL) != 0xfffffff000000000ULL) {
+         if ((address & 0xffffffff00000000ULL) != 0xf00000000ULL) {
+-        if (((address & 0xfffffffffff00000ULL) < 0x400000ULL) ||
+-            ((address & 0xfffffffffff00000ULL) > 0x900000ULL)) {
+             DPRINTF("va %" PRIx64 " pa %" PRIx64 " pc %" PRIx64 "\n",
+                     address, phys_addr, env->regs[31]);
+         }
+         }
+-        }
+     }
+ 
+     if (ret == 0) {
+-- 
+1.7.9.5
+

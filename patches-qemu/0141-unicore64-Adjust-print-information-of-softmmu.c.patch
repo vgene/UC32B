@@ -1,0 +1,61 @@
+From 1ea8d2e8b44bcd4cb6e60a7739332e908f579e45 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 22:03:40 +0800
+Subject: [PATCH 141/247] unicore64: Adjust print information of softmmu.c
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |   17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index a8fc0fb..a5b8a13 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -16,7 +16,7 @@
+ #error This file only exist under softmmu circumstance
+ #endif
+ 
+-#undef DEBUG_UC64
++#define DEBUG_UC64
+ 
+ #ifdef DEBUG_UC64
+ #define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
+@@ -44,14 +44,6 @@
+ #define SHIFT 3
+ #include "softmmu_template.h"
+ 
+-#undef DEBUG_UC64
+-
+-#ifdef DEBUG_UC64
+-#define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
+-#else
+-#define DPRINTF(fmt, ...) do {} while (0)
+-#endif
+-
+ void tlb_fill(CPUUniCore64State *env1, target_ulong addr, int is_write,
+         int mmu_idx, uintptr_t retaddr)
+ {
+@@ -113,14 +105,17 @@ void do_interrupt(CPUUniCore64State *env)
+         addr = UC64_EXCP_PRIV;
+         break;
+     case UC64_EXCP_ITRAP:
+-        DPRINTF("itrap happend at %x\n", env->regs[31]);
++        DPRINTF("itrap happend at %" PRIx64 "\n", env->regs[31]);
+         addr = UC64_EXCP_ITRAP;
+         break;
+     case UC64_EXCP_DTRAP:
+-        DPRINTF("dtrap happend at %x\n", env->regs[31]);
++        DPRINTF("dtrap happend at %" PRIx64 "\n", env->regs[31]);
+         addr = UC64_EXCP_DTRAP;
+         break;
+     case UC64_INTR_ITIMER:
++        DPRINTF("itimer happend at %" PRIx64 "\n", env->regs[31]);
++        addr = UC64_INTR_ITIMER;
++        break;
+     default:
+         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
+         return;
+-- 
+1.7.9.5
+

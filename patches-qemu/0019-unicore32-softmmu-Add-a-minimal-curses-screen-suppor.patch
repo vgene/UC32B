@@ -1,0 +1,88 @@
+From bba42ccbcec744ced3eaafa327e374643b1eddd0 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 26 Jul 2012 09:47:13 +0800
+Subject: [PATCH 019/247] unicore32-softmmu: Add a minimal curses screen
+ support
+
+This patch adds a minimal curses screen support for unicore32-softmmu.
+We assume 80*30 screen size to minimize the implementation.
+Two problems are not solved, but they are innocuous.
+1. curses windows will be blank when switching to monitor screen and back
+2. backspace is not handled yet
+
+v1->v2: add extra handler for '\r'
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore32/helper.c |   45 +++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 43 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore32/helper.c b/target-unicore32/helper.c
+index d6eb758..d21e7df 100644
+--- a/target-unicore32/helper.c
++++ b/target-unicore32/helper.c
+@@ -13,6 +13,7 @@
+ #include "gdbstub.h"
+ #include "helper.h"
+ #include "host-utils.h"
++#include "console.h"
+ 
+ #undef DEBUG_UC32
+ 
+@@ -186,10 +187,50 @@ uint32_t helper_cp0_get(CPUUniCore32State *env, uint32_t creg, uint32_t cop)
+     return 0;
+ }
+ 
++#ifdef CONFIG_CURSES
++/*
++ * FIXME:
++ *     1. curses windows will be blank when switching back
++ *     2. backspace is not handled yet
++ */
++static void putc_on_screen(unsigned char ch)
++{
++    static WINDOW *localwin;
++    static int init;
++
++    if (!init) {
++        /* Assume 80 * 30 screen to minimize the implementation */
++        localwin = newwin(30, 80, 0, 0);
++        scrollok(localwin, TRUE);
++        init = TRUE;
++    }
++
++    if (isprint(ch)) {
++        wprintw(localwin, "%c", ch);
++    } else {
++        switch (ch) {
++        case '\n':
++            wprintw(localwin, "%c", ch);
++            break;
++        case '\r':
++            /* If '\r' is put before '\n', the curses window will destroy the
++             * last print line. And meanwhile, '\n' implifies '\r' inside. */
++            break;
++        default: /* Not handled, so just print it hex code */
++            wprintw(localwin, "-- 0x%h --", ch);
++        }
++    }
++
++    wrefresh(localwin);
++}
++#else
++#define putc_on_screen(c)               do { } while (0)
++#endif
++
+ void helper_cp1_putc(target_ulong x)
+ {
+-    /* TODO: curses display should be added here for screen output. */
+-    DPRINTF("%c", x);
++    putc_on_screen((unsigned char)x);   /* Output to screen */
++    DPRINTF("%c", x);                   /* Output to stdout */
+ }
+ #endif
+ 
+-- 
+1.7.9.5
+

@@ -1,0 +1,48 @@
+From e9b1aaf709a89269e2127c8d4faef5f27656f380 Mon Sep 17 00:00:00 2001
+From: Michael Hoo <huyy@pku.edu.cn>
+Date: Tue, 29 Nov 2016 16:21:25 +0800
+Subject: [PATCH] Fixing link error in gcc-5
+
+Signed-off-by: Michael Hoo <huyy@pku.edu.cn>
+---
+ configure   | 5 +++--
+ hw/sysbus.c | 2 +-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/configure b/configure
+index 58f0313..275c356 100755
+--- a/configure
++++ b/configure
+@@ -2615,13 +2615,14 @@ fi
+ cat > $TMPC <<EOF
+ #include <signal.h>
+ #include <time.h>
+-int main(void) { return clock_gettime(CLOCK_REALTIME, NULL); }
++int main(void) {  timer_create(CLOCK_REALTIME, NULL, NULL); return clock_gettime(CLOCK_REALTIME, NULL); }
+ EOF
+ 
+ if compile_prog "" "" ; then
+   :
+-elif compile_prog "" "-lrt" ; then
++elif compile_prog "" "-lrt $pthread_lib"; then
+   LIBS="-lrt $LIBS"
++  libs_qga="-lrt $libs_qga"
+ fi
+ 
+ if test "$darwin" != "yes" -a "$mingw32" != "yes" -a "$solaris" != yes -a \
+diff --git a/hw/sysbus.c b/hw/sysbus.c
+index 9d8b1ea..9bed6ec 100644
+--- a/hw/sysbus.c
++++ b/hw/sysbus.c
+@@ -41,7 +41,7 @@ static const TypeInfo system_bus_info = {
+ 
+ void sysbus_connect_irq(SysBusDevice *dev, int n, qemu_irq irq)
+ {
+-    assert(n >= 0 && n < dev->num_irq);
++    //assert(n >= 0 && n < dev->num_irq);
+     dev->irqs[n] = NULL;
+     if (dev->irqp[n]) {
+         *dev->irqp[n] = irq;
+-- 
+2.7.4
+

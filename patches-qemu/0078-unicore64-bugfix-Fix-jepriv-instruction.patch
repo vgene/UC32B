@@ -1,0 +1,25 @@
+From 711b675667eeead6c6df25dd69f6b88cf83ba504 Mon Sep 17 00:00:00 2001
+From: Meng Xiangzeng <mengxiangzeng@mprc.pku.edu.cn>
+Date: Sat, 11 Aug 2012 05:57:18 +0800
+Subject: [PATCH 078/247] unicore64-bugfix: Fix jepriv instruction
+
+---
+ linux-user/main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/linux-user/main.c b/linux-user/main.c
+index 88e413f..ff696cd 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -1009,7 +1009,7 @@ void cpu_loop(CPUUniCore64State *env)
+         switch (trapnr) {
+         case UC64_EXCP_PRIV:
+             /* Get system call number, only least 16 bits available */
+-            get_user_u64(insn, env->regs[31]);
++            get_user_u64(insn, env->regs[31] - 4);
+ 
+             if ((insn & 0xffff0000) != 0xf0000000) {
+                 goto error;
+-- 
+1.7.9.5
+

@@ -1,0 +1,126 @@
+From cf238986f7c2a34477d20c89c261395be7098dae Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 11 Aug 2012 11:53:39 +0800
+Subject: [PATCH 086/247] unicore64-bugfix: Adjust afr_read and afr_write
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |   15 ++++++++-------
+ target-unicore64/helper.h    |    4 ++--
+ target-unicore64/translate.c |   28 ++++++++++++----------------
+ 3 files changed, 22 insertions(+), 25 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index f6b2cfc..e7ad7c2 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -55,17 +55,18 @@ void HELPER(exception)(uint32_t excp)
+     cpu_loop_exit(env);
+ }
+ 
+-void HELPER(afr_write)(uint32_t x)
++void HELPER(afr_write)(uint64_t x)
+ {
+-    env->NF = (x >> 3) & 0x1;
+-    env->ZF = (x >> 2) & 0x1;
+-    env->CF = (x >> 1) & 0x1;
+-    env->VF = (x >> 0) & 0x1;
++    env->NF = x << 60;
++    env->ZF = (~x) & AFR_Z;
++    env->CF = (x >> 1) & AFR_C;
++    env->VF = x << 63;
+ }
+ 
+-uint32_t HELPER(afr_read)(void)
++uint64_t HELPER(afr_read)(void)
+ {
+-    return (env->NF << 3) | (env->ZF << 2) | (env->CF << 1) | (env->VF << 0);
++    return (((env->NF >> 63) << 3) | ((env->ZF == 0) << 2) |
++        (env->CF << 1) | (env->VF >> 63));
+ }
+ 
+ uint32_t HELPER(clo_i32)(uint32_t x)
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 44d271e..a41efde 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -12,8 +12,8 @@ DEF_HELPER_1(cp1_putc, void, i64)
+ DEF_HELPER_1(cp1_putx, void, i64)
+ 
+ DEF_HELPER_1(exception, void, i32)
+-DEF_HELPER_0(afr_read, i32)
+-DEF_HELPER_1(afr_write, void, i32)
++DEF_HELPER_0(afr_read, i64)
++DEF_HELPER_1(afr_write, void, i64)
+ DEF_HELPER_1(clz_i32, i32, i32)
+ DEF_HELPER_1(clz_i64, i64, i64)
+ DEF_HELPER_1(clo_i32, i32, i32)
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index ff810a6..ce65f42 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -559,49 +559,45 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+ static void do_srfr(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
+-    TCGv_i32 t_flag_32;
++    TCGv_i64 t_flag_64;
+ 
+-    if ((insn & 0xfbfffff0) == 0x38200000) { /* insn mov afr, imm */
+-        t_flag_32 = tcg_temp_new_i32();
++    t_flag_64 = tcg_temp_new_i64();
+ 
+-        tcg_gen_movi_i32(t_flag_32, insn & 0xf);
++    if ((insn & 0xfbfffff0) == 0x38200000) { /* insn mov afr, imm */
++        tcg_gen_movi_i64(t_flag_64, (uint64_t)insn & 0xf);
+         if (UCOP_SET(26)) { /* C bit*/
+-            gen_helper_afr_write(t_flag_32);
++            gen_helper_afr_write(t_flag_64);
+         } else {
+             ILLEGAL_INSN(true);
+         }
+ 
+-        tcg_temp_free_i32(t_flag_32);
++        tcg_temp_free_i64(t_flag_64);
+         return;
+     }
+     if ((insn & 0xf3ff07ff) == 0x30000000) { /* insn mov afr, rs1 */
+         ILLEGAL_INSN(UCOP_REG_S1 == 31);
+ 
+-        t_flag_32 = tcg_temp_new_i32();
+-
+-        tcg_gen_trunc_i64_i32(t_flag_32, cpu_R[UCOP_REG_S1]);
++        tcg_gen_mov_i64(t_flag_64, cpu_R[UCOP_REG_S1]);
+         if (UCOP_SET(27) && UCOP_SET(26)) { /* F bit C bit */
+-            gen_helper_afr_write(t_flag_32);
++            gen_helper_afr_write(t_flag_64);
+         } else {
+             ILLEGAL_INSN(true);
+         }
+ 
+-        tcg_temp_free_i32(t_flag_32);
++        tcg_temp_free_i64(t_flag_64);
+         return;
+     }
+     if ((insn & 0xf3e0ffff) == 0x20000000) { /* insn mov rd, afr */
+         ILLEGAL_INSN(UCOP_REG_D == 31);
+ 
+-        t_flag_32 = tcg_temp_new_i32();
+-
+         if (UCOP_SET(27) && UCOP_SET(26)) { /* F bit C bit */
+-            gen_helper_afr_read(t_flag_32);
+-            tcg_gen_extu_i32_i64(cpu_R[UCOP_REG_D], t_flag_32);
++            gen_helper_afr_read(t_flag_64);
++            tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_flag_64);
+         } else {
+             ILLEGAL_INSN(true);
+         }
+ 
+-        tcg_temp_free_i32(t_flag_32);
++        tcg_temp_free_i64(t_flag_64);
+         return;
+     }
+ 
+-- 
+1.7.9.5
+

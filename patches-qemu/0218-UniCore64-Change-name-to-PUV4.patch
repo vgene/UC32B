@@ -1,0 +1,96 @@
+From be473d0d7c29ac60067efdf51509de83f174b72c Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Fri, 4 Jan 2013 17:54:32 +0800
+Subject: [PATCH 218/247] UniCore64: Change name to PUV4
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ cpu-exec.c                 |    2 +-
+ hw/puv4.c                  |    6 +++---
+ hw/puv4.h                  |    6 +++---
+ target-unicore64/cpu.h     |    2 +-
+ target-unicore64/softmmu.c |    2 +-
+ 5 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index a5f4a68..d5fcf45 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -456,7 +456,7 @@ int cpu_exec(CPUArchState *env)
+ #elif defined(TARGET_UNICORE64)
+                     if (interrupt_request & CPU_INTERRUPT_HARD
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
+-                        env->exception_index = UC64_INTR_PE;
++                        env->exception_index = UC64_INTR_PUV4;
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
+diff --git a/hw/puv4.c b/hw/puv4.c
+index 3bec61a..f988ed0 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -19,15 +19,15 @@ static void puv4_soc_init(CPUUniCore64State *env)
+     MemoryRegion *i8042 = g_new(MemoryRegion, 1);
+     int i;
+ 
+-    dev = sysbus_create_simple("uc64_soc_intc", UC64_INTC_BASE,
++    dev = sysbus_create_simple("uc64_soc_intc", PUV4_INTC_BASE,
+             uc64_cpu_intc[UC64_INTR_DEV]);
+     for (i = 0; i < PUV4_IRQS_NR; i++) {
+         intc_irqs[i] = qdev_get_gpio_in(dev, i);
+     }
+ 
+-    i8042_mm_init(intc_irqs[UC64_IRQS_PS2_KBD], NULL, i8042,
++    i8042_mm_init(intc_irqs[PUV4_IRQS_PS2_KBD], NULL, i8042,
+             PUV4_REGS_OFFSET, 0x10);
+-    memory_region_add_subregion(get_system_memory(), UC64_PS2_BASE, i8042);
++    memory_region_add_subregion(get_system_memory(), PUV4_PS2_BASE, i8042);
+ }
+ 
+ static void puv4_board_init(CPUUniCore64State *env, ram_addr_t ram_size)
+diff --git a/hw/puv4.h b/hw/puv4.h
+index c1c3a8f..13acf20 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -10,9 +10,9 @@
+ 
+ #define PUV4_REGS_OFFSET        (0x1000) /* 4K is reasonable */
+ #define PUV4_IRQS_NR            (32)
+-#define UC64_IRQS_PS2_KBD       (22)
+-#define UC64_INTC_BASE          (0xee600000)
+-#define UC64_PS2_BASE           (0xef100000)
++#define PUV4_IRQS_PS2_KBD       (22)
++#define PUV4_INTC_BASE          (0xee600000)
++#define PUV4_PS2_BASE           (0xef100000)
+ 
+ extern qemu_irq *uc64_cpu_intc;
+ #endif /* !QEMU_HW_PUV4_H */
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 026abcb..2c09262 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -103,7 +103,7 @@ typedef struct CPUUniCore64State {
+ #define UC64_EXCP_ITRAP         0x0c
+ #define UC64_EXCP_DTRAP         0x10
+ #define UC64_INTR_ITIMER        0x20
+-#define UC64_INTR_PE            0x24
++#define UC64_INTR_PUV4          0x24
+ 
+ /* Return the current ASR value.  */
+ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 090348b..498ad7c 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -115,7 +115,7 @@ void do_interrupt(CPUUniCore64State *env)
+     case UC64_INTR_ITIMER:
+         trace_uc64_do_interrupt("ITIMER", env->uncached_asr);
+         break;
+-    case UC64_INTR_PE:
++    case UC64_INTR_PUV4:
+         trace_uc64_do_interrupt("DEVICE", env->uncached_asr);
+         break;
+     case UC64_EXCP_PRIV:
+-- 
+1.7.9.5
+

@@ -1,0 +1,113 @@
+From 496ef413728b024d2a4d2e4a170531967314a041 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 14 Aug 2012 13:31:06 +0800
+Subject: [PATCH 113/247] unicore64: Add movc p0.c0 instruction
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |   27 ++++++++++++++++++++++++++-
+ target-unicore64/helper.h    |    1 +
+ target-unicore64/translate.c |   21 ++++++++++++++++++++-
+ 3 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 82f4635..33b2cf7 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -8,7 +8,7 @@
+ #include "helper.h"
+ #include "host-utils.h"
+ 
+-#undef DEBUG_UC64
++#define DEBUG_UC64
+ 
+ #ifdef DEBUG_UC64
+ #define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
+@@ -228,6 +228,31 @@ uint64_t HELPER(adc_cc_i64)(uint64_t a, uint64_t b)
+     return result;
+ }
+ 
++uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
++        uint64_t cop)
++{
++#ifdef CONFIG_USER_ONLY
++    cpu_abort(env, "NO priviledged instructions in user mode\n");
++#endif
++    /*
++     * movc rd, pp.nn, #imm9
++     *      rd: UCOP_REG_D
++     *      nn: UCOP_REG_S1
++     *          0 : cpuid
++     */
++    switch (creg) {
++    case 0:
++        switch (cop) {
++        case 0:
++            return env->cp0.c0_cpuid;
++        }
++        break;
++    }
++    DPRINTF("Wrong register (%" PRIx64 ") or wrong operation (%" PRIx64
++            ") in %s!\n", creg, cop, __func__);
++    return 0;
++}
++
+ #ifdef CONFIG_USER_ONLY
+ void switch_mode(CPUUniCore64State *env, int mode)
+ {
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index e669485..cdb4ea7 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -10,6 +10,7 @@
+ 
+ DEF_HELPER_1(cp1_putc, void, i64)
+ DEF_HELPER_1(cp1_putx, void, i64)
++DEF_HELPER_3(cp0_get, i64, env, i64, i64)
+ 
+ DEF_HELPER_1(exception, void, i32)
+ DEF_HELPER_0(afr_read, i64)
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index b2c395e..ded3d32 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -76,6 +76,7 @@ void uc64_translate_init(void)
+ #define UCOP_SHIFT              (((insn) >> 24) & 0x03)
+ #define UCOP_IMM11              (((insn) >>  0) & 0x7ff)
+ #define UCOP_IMM_6              (((insn) >>  0) & 0x3f)
++#define UCOP_IMM_9              (((insn) >>  2) & 0x1ff)
+ #define UCOP_CPNUM              (((insn) >> 21) & 0xf)
+ #define UCOP_LDST_BHD           (((insn) >> 22) & 0x7)
+ #define UCOP_CMOV_COND          (((insn) >> 12) & 0xf)
+@@ -1178,9 +1179,27 @@ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
+-    TCGv_i64 t_creg_64;
++    TCGv_i64 t_creg_64, t_cop_64;
+ 
+     switch (UCOP_CPNUM) {
++    case 0: /* cp0 */
++        ILLEGAL_INSN(UCOP_REG_D == 31);
++        if ((insn & 0xfe000003) == 0xc0000000) {
++            t_creg_64 = tcg_temp_new_i64();
++            t_cop_64 = tcg_temp_new_i64();
++            tcg_gen_movi_i64(t_creg_64, UCOP_REG_S1);
++            tcg_gen_movi_i64(t_cop_64, UCOP_IMM_9);
++            if (UCOP_SET(25)) { /* load */
++                gen_helper_cp0_get(t_creg_64, cpu_env, t_creg_64, t_cop_64);
++                tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_creg_64);
++            } else { /* store */
++                ILLEGAL_INSN(true);
++            }
++            tcg_temp_free(t_creg_64);
++            tcg_temp_free(t_cop_64);
++            return;
++        }
++        break;
+     case 1: /* fake ocd */
+         /* ONLY handle movc p1.cd, rs1, #0 */
+         ILLEGAL_INSN((insn & 0xfe0007ff) != 0xc0000000);
+-- 
+1.7.9.5
+

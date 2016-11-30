@@ -1,0 +1,35 @@
+From 321477f03e0556dc14d9ca5484be6b4c00c03e0e Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Tue, 14 Aug 2012 21:50:49 +0800
+Subject: [PATCH 114/247] unicore64 softmmu: change exception address name
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index bfbbdae..db7ff72 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -68,10 +68,13 @@ typedef struct CPUUniCore64State {
+ 
+ } CPUUniCore64State;
+ 
+-#define ASR_MODE_SELECT         (0x7)
+-#define ASR_MODE_USER           (1 << 0)
+-#define ASR_MODE_PRIV           (1 << 1)
+-#define ASR_MODE_DEBUG          (1 << 2)
++#define ASR_IDX_USER            (0)
++#define ASR_IDX_PRIV            (1)
++#define ASR_IDX_DEBUG           (2)
++#define ASR_MODE_SELECT         (ASR_MODE_USER | ASR_MODE_PRIV | ASR_MODE_DEBUG)
++#define ASR_MODE_USER           (1 << ASR_IDX_USER)
++#define ASR_MODE_PRIV           (1 << ASR_IDX_PRIV)
++#define ASR_MODE_DEBUG          (1 << ASR_IDX_DEBUG)
+ #define ASR_INTR_SELECT         (0x3f << 5)
+ #define AFR_V                   (1 << 0)
+ #define AFR_C                   (1 << 1)
+-- 
+1.7.9.5
+

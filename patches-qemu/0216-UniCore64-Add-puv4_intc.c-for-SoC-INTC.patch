@@ -1,0 +1,186 @@
+From f937ee171180f5333c0293a3eaf3818989aad754 Mon Sep 17 00:00:00 2001
+From: Meng Xiangzeng <mengxiangzeng@mprc.pku.edu.cn>
+Date: Tue, 11 Dec 2012 16:37:55 +0800
+Subject: [PATCH 216/247] UniCore64:Add puv4_intc.c for SoC INTC
+
+Signed-off-by: Meng Xiangzeng <mengxiangzeng@mprc.pku.edu.cn>
+---
+ hw/Makefile.objs |    2 +
+ hw/puv4.h        |    1 +
+ hw/puv4_intc.c   |  140 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 143 insertions(+)
+ create mode 100644 hw/puv4_intc.c
+
+diff --git a/hw/Makefile.objs b/hw/Makefile.objs
+index 6df346a..73aef1f 100644
+--- a/hw/Makefile.objs
++++ b/hw/Makefile.objs
+@@ -73,6 +73,8 @@ hw-obj-$(CONFIG_PUV3) += puv3_gpio.o
+ hw-obj-$(CONFIG_PUV3) += puv3_pm.o
+ hw-obj-$(CONFIG_PUV3) += puv3_dma.o
+ 
++hw-obj-$(CONFIG_PUV4) += puv4_intc.o
++
+ # PCI watchdog devices
+ hw-obj-$(CONFIG_PCI) += wdt_i6300esb.o
+ 
+diff --git a/hw/puv4.h b/hw/puv4.h
+index a3cf35c..ed04851 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -9,5 +9,6 @@
+ #endif
+ 
+ #define PUV4_REGS_OFFSET        (0x1000) /* 4K is reasonable */
++#define PUV4_IRQS_NR            (32)
+ 
+ #endif /* !QEMU_HW_PUV4_H */
+diff --git a/hw/puv4_intc.c b/hw/puv4_intc.c
+new file mode 100644
+index 0000000..34bd2dd
+--- /dev/null
++++ b/hw/puv4_intc.c
+@@ -0,0 +1,140 @@
++/*
++ * INTC device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2010-2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "sysbus.h"
++
++#undef DEBUG_PUV4
++#include "puv4.h"
++
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    qemu_irq parent_irq;
++
++    uint32_t reg_ICMR;
++    uint32_t reg_ICPR;
++} PUV4INTCState;
++
++/* Update interrupt status after enabled or pending bits have been changed.  */
++static void puv4_intc_update(PUV4INTCState *s)
++{
++    if (s->reg_ICMR & s->reg_ICPR) {
++        qemu_irq_raise(s->parent_irq);
++    } else {
++        qemu_irq_lower(s->parent_irq);
++    }
++}
++
++/* Process a change in an external INTC input. */
++static void puv4_intc_handler(void *opaque, int irq, int level)
++{
++    PUV4INTCState *s = opaque;
++
++    DPRINTF("irq 0x%x, level 0x%x\n", irq, level);
++    if (level) {
++        s->reg_ICPR |= (1 << irq);
++    } else {
++        s->reg_ICPR &= ~(1 << irq);
++    }
++
++    if (level) {
++        qemu_irq_raise(s->parent_irq);
++    } else {
++        qemu_irq_lower(s->parent_irq);
++    }
++}
++
++static uint64_t puv4_intc_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    PUV4INTCState *s = opaque;
++    uint32_t ret = 0;
++
++    switch (offset) {
++    case 0x04: /* INTC_ICMR */
++        ret = s->reg_ICMR;
++        break;
++    case 0x0c: /* INTC_ICIP */
++        ret = s->reg_ICPR; /* the same value with ICPR */
++        break;
++    default:
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++    DPRINTF("offset 0x%x, value 0x%x\n", offset, ret);
++    return ret;
++}
++
++static void puv4_intc_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    PUV4INTCState *s = opaque;
++
++    DPRINTF("offset 0x%x, value 0x%x\n", offset, value);
++    switch (offset) {
++    case 0x00: /* INTC_ICLR */
++    case 0x14: /* INTC_ICCR */
++        break;
++    case 0x04: /* INTC_ICMR */
++        s->reg_ICMR = value;
++        break;
++    default:
++        DPRINTF("Bad offset 0x%x\n", (int)offset);
++        return;
++    }
++    puv4_intc_update(s);
++}
++
++static const MemoryRegionOps puv4_intc_ops = {
++    .read = puv4_intc_read,
++    .write = puv4_intc_write,
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static int puv4_intc_init(SysBusDevice *dev)
++{
++    PUV4INTCState *s = FROM_SYSBUS(PUV4INTCState, dev);
++
++    qdev_init_gpio_in(&s->busdev.qdev, puv4_intc_handler, PUV4_IRQS_NR);
++    sysbus_init_irq(&s->busdev, &s->parent_irq);
++
++    s->reg_ICMR = 0;
++    s->reg_ICPR = 0;
++
++    memory_region_init_io(&s->iomem, &puv4_intc_ops, s, "uc64_soc_intc",
++            PUV4_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void puv4_intc_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = puv4_intc_init;
++}
++
++static const TypeInfo puv4_intc_info = {
++    .name = "uc64_soc_intc",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(PUV4INTCState),
++    .class_init = puv4_intc_class_init,
++};
++
++static void puv4_intc_register_type(void)
++{
++    type_register_static(&puv4_intc_info);
++}
++
++type_init(puv4_intc_register_type)
+-- 
+1.7.9.5
+

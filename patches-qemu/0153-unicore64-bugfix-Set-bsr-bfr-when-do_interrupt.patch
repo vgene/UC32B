@@ -1,0 +1,79 @@
+From d3b4f18d1b13cf8a2cb9fbabae90601fc7698736 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 02:46:22 +0800
+Subject: [PATCH 153/247] unicore64-bugfix: Set bsr/bfr when do_interrupt
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h     |    5 +++--
+ target-unicore64/helper.c  |    3 +--
+ target-unicore64/softmmu.c |    6 ++----
+ 3 files changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index dd323fa..388dcbc 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -42,8 +42,6 @@ typedef struct CPUUniCore64State {
+     /* Banked registers. */
+     uint64_t banked_r29[3];
+     uint64_t banked_r30[3];
+-    uint64_t banked_bsr[3];
+-    uint64_t banked_bfr[3];
+ 
+     /* AFR cache for faster execution */
+     uint64_t VF; /* V is the bit 31. All other bits are undefined */
+@@ -95,6 +93,9 @@ typedef struct CPUUniCore64State {
+ #define AFR_Z                   (1 << 2)
+ #define AFR_N                   (1 << 3)
+ 
++#define AFR_READ(env)   (((env->NF >> 63) << 3) | ((env->ZF == 0) << 2) | \
++                        (env->CF << 1) | (env->VF >> 63))
++
+ #define UC64_EXCP_PRIV          0x08
+ #define UC64_EXCP_ITRAP         0x0c
+ #define UC64_EXCP_DTRAP         0x10
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 21427aa..7986e77 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -84,8 +84,7 @@ void HELPER(afr_write)(uint64_t x)
+ 
+ uint64_t HELPER(afr_read)(void)
+ {
+-    return (((env->NF >> 63) << 3) | ((env->ZF == 0) << 2) |
+-        (env->CF << 1) | (env->VF >> 63));
++    return AFR_READ(env);
+ }
+ 
+ uint64_t HELPER(asr_read)(void)
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 5aa9bc6..05c5f17 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -87,13 +87,9 @@ void switch_mode(CPUUniCore64State *env, int mode)
+ 
+     env->banked_r29[old_mode_idx] = env->regs[29];
+     env->banked_r30[old_mode_idx] = env->regs[30];
+-    env->banked_bsr[old_mode_idx] = env->uncached_asr;
+-    env->banked_bfr[old_mode_idx] = env->uncached_afr;
+ 
+     env->regs[29] = env->banked_r29[mode_idx];
+     env->regs[30] = env->banked_r30[mode_idx];
+-    env->uncached_asr = env->banked_bsr[mode_idx];
+-    env->uncached_afr = env->banked_bfr[mode_idx];
+ }
+ 
+ void do_interrupt(CPUUniCore64State *env)
+@@ -124,6 +120,8 @@ void do_interrupt(CPUUniCore64State *env)
+     addr += (env->cp0.c9_excpbase);
+ 
+     switch_mode(env, ASR_MODE_PRIV);
++    env->bsr = env->uncached_asr;
++    env->bfr = AFR_READ(env);
+     env->uncached_asr = (env->uncached_asr & ~ASR_MODE_SELECT) | ASR_MODE_PRIV;
+     env->uncached_asr |= ASR_INTR_SELECT;
+     /* the PC already points to the proper instruction. */
+-- 
+1.7.9.5
+

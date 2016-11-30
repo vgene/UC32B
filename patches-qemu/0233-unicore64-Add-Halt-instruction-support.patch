@@ -1,0 +1,65 @@
+From 2ac3518bfafa80cbe65d78e343e25942d1b00ce6 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 17:20:09 +0800
+Subject: [PATCH 233/247] unicore64: Add Halt instruction support
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c    |    6 ++++++
+ target-unicore64/helper.h    |    1 +
+ target-unicore64/translate.c |   10 ++++++++++
+ 3 files changed, 17 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 42035ad..6206b73 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -120,6 +120,12 @@ void HELPER(exception)(uint32_t excp)
+     cpu_loop_exit(env);
+ }
+ 
++void helper_halt(uint32_t tmp)
++{
++    env->interrupt_request |= tmp;
++    cpu_loop_exit(env);
++}
++
+ void HELPER(asr_write)(uint64_t x)
+ {
+     uint64_t mod = x & ASR_MODE_SELECT;
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 869a3ff..737daed 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -11,6 +11,7 @@
+ DEF_HELPER_1(cp1_putc, void, i64)
+ DEF_HELPER_1(cp1_putx, void, i64)
+ DEF_HELPER_0(ocd_output, void)
++DEF_HELPER_1(halt, void, i32)
+ DEF_HELPER_3(cp0_get, i64, env, i64, i64)
+ DEF_HELPER_4(cp0_set, void, env, i64, i64, i64)
+ 
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index d9b2aa6..d5b68dd 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1412,6 +1412,16 @@ static void do_exception(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         gen_helper_ocd_output();
+         return;
+     }
++
++    if ((insn & 0xff000000) == 0xff000000) { /* HALT */
++        tmp = tcg_temp_new_i32();
++        tcg_gen_movi_i32(tmp, CPU_INTERRUPT_HALT);
++        gen_helper_halt(tmp);
++        tcg_temp_free_i32(tmp);
++
++        s->dc_jmp = DISAS_TB_JUMP;
++        return;
++    }
+     ILLEGAL_INSN(true);
+ }
+ 
+-- 
+1.7.9.5
+

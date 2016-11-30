@@ -1,0 +1,27 @@
+From e5d70082edb0694107cb6f544f0019f6c267d7d8 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 18:17:24 +0800
+Subject: [PATCH 165/247] unicore64-ucf64: Add default handling for mov.t
+ mov.f
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/ucf64_trans.h |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 9b8a266..c008e9b 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -286,6 +286,8 @@ static void do_ucf64_datap(CPUUniCore64State *env, DisasContext *s,
+             gen_helper_ucf64_movtw(t_F1s, t_F0s, t_cond, cpu_env);
+             tcg_gen_st_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+             break;
++        default:
++            ILLEGAL_INSN(true);
+         }
+         break;
+     default:
+-- 
+1.7.9.5
+

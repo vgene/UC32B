@@ -1,0 +1,34 @@
+From ed5429663d7cd8ad10db99b92528a2e1358df9fb Mon Sep 17 00:00:00 2001
+From: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Date: Tue, 16 Apr 2013 15:23:14 +0800
+Subject: [PATCH 244/247] unicore64: Adjust ldst which allows pc as
+ UCOP_REG_S2
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index c00ca46..ebe4110 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -945,10 +945,13 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     if (UCOP_SET(21)) { /* reg or imm */
+         tcg_gen_movi_i64(t_op2_64, UCOP_IMM11);
+     } else {
+-        ILLEGAL_INSN(UCOP_REG_S2 == 31);
+         ILLEGAL_INSN(UCOP_IMM_6);
+ 
+-        tcg_gen_mov_i64(t_op2_64, cpu_R[UCOP_REG_S2]);
++        if (UCOP_REG_S2 == 31) {
++            tcg_gen_movi_i64(t_op2_64, s->dc_pc);
++        } else {
++            tcg_gen_mov_i64(t_op2_64, cpu_R[UCOP_REG_S2]);
++        }
+     }
+ 
+     if (UCOP_SET(27)) { /* pre */
+-- 
+1.7.9.5
+

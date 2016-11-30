@@ -1,0 +1,337 @@
+From 239f8609c3944a1e097bc4ed0a1c640be6f05323 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 17:31:33 +0800
+Subject: [PATCH 234/247] unicore64: Add OSTimer support
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ cpu-exec.c                 |    6 ++
+ hw/Makefile.objs           |    1 +
+ hw/puv4.c                  |    2 +
+ hw/puv4.h                  |    1 +
+ hw/puv4_ost.c              |  146 ++++++++++++++++++++++++++++++++++++++++++++
+ hw/unicore64/cp0_intc.c    |   19 +++++-
+ target-unicore64/cpu.h     |    2 +
+ target-unicore64/softmmu.c |    9 +++
+ 8 files changed, 184 insertions(+), 2 deletions(-)
+ create mode 100644 hw/puv4_ost.c
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 7efde85..9c2c585 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -454,6 +454,12 @@ int cpu_exec(CPUArchState *env)
+                         next_tb = 0;
+                     }
+ #elif defined(TARGET_UNICORE64)
++                    if ((interrupt_request & CPU_INTERRUPT_OTM)
++                        && !(env->uncached_asr & ASR_INTR_SELECT)) {
++                        env->exception_index = UC64_INTR_OTIMER;
++                        do_interrupt(env);
++                        next_tb = 0;
++                    }
+                     if (interrupt_request & CPU_INTERRUPT_HARD
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
+                         env->exception_index = UC64_INTR_PUV4;
+diff --git a/hw/Makefile.objs b/hw/Makefile.objs
+index 73aef1f..cc3cd07 100644
+--- a/hw/Makefile.objs
++++ b/hw/Makefile.objs
+@@ -74,6 +74,7 @@ hw-obj-$(CONFIG_PUV3) += puv3_pm.o
+ hw-obj-$(CONFIG_PUV3) += puv3_dma.o
+ 
+ hw-obj-$(CONFIG_PUV4) += puv4_intc.o
++hw-obj-$(CONFIG_PUV4) += puv4_ost.o
+ 
+ # PCI watchdog devices
+ hw-obj-$(CONFIG_PCI) += wdt_i6300esb.o
+diff --git a/hw/puv4.c b/hw/puv4.c
+index cd05c0b..271ed07 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -22,6 +22,8 @@ static void puv4_soc_init(CPUUniCore64State *env)
+     int i;
+ 
+     sysbus_create_varargs("uc64_io_ctl", UC64_IO_CTL_BASE);
++    sysbus_create_simple("uc64_ost", UC64_OST_BASE,
++            uc64_cpu0_intc[UC64_INTR_OTM]);
+     dev = sysbus_create_simple("uc64_soc_intc", PUV4_INTC_BASE,
+             uc64_cpu0_intc[UC64_INTR_DEV]);
+     for (i = 0; i < PUV4_IRQS_NR; i++) {
+diff --git a/hw/puv4.h b/hw/puv4.h
+index 32f039d..51dd835 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -14,6 +14,7 @@
+ #define PUV4_INTC_BASE          (0xee600000)
+ #define PUV4_PS2_BASE           (0xef100000)
+ #define UC64_IO_CTL_BASE        (0xff6100000ULL) /* FAKE */
++#define UC64_OST_BASE           (0xfee800000ULL) /* FAKE */
+ 
+ extern qemu_irq *uc64_cpu0_intc;
+ extern qemu_irq *uc64_cpu1_intc;
+diff --git a/hw/puv4_ost.c b/hw/puv4_ost.c
+new file mode 100644
+index 0000000..d303cdf
+--- /dev/null
++++ b/hw/puv4_ost.c
+@@ -0,0 +1,146 @@
++/*
++ * PUV4 OST device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "ptimer.h"
++#include "sysbus.h"
++
++#undef DEBUG_PUV4
++#include "puv4.h"
++
++/* UniCore64 ostimer implementation. */
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    QEMUBH *bh;
++    qemu_irq irq_otimer;
++    ptimer_state *ptimer;
++
++    uint32_t reg_OSCR;
++    uint32_t reg_OSMR0;
++    uint32_t reg_OSSR;
++} UC64OTMState;
++
++static uint64_t uc64_ost_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    UC64OTMState *s = opaque;
++    uint32_t ret = 0;
++
++    static int ost_init;
++    switch (offset) {
++    case 0x10: /* Counter Register */
++        if (!ost_init) {
++            ptimer_set_limit(s->ptimer, 0xffffffff, 0);
++            ptimer_set_count(s->ptimer, 0);
++            ptimer_run(s->ptimer, 0);
++            ost_init = 1;
++            fprintf(stderr, "OSMR0 ost_init\n");
++        }
++        ret = s->reg_OSMR0 - (uint32_t)ptimer_get_count(s->ptimer);
++        fprintf(stderr, "OSMR0 %" PRIx32 " ptimer_count %" PRIx32 "\n",
++                s->reg_OSMR0, (uint32_t)ptimer_get_count(s->ptimer));
++        break;
++    case 0x14:
++        ret = s->reg_OSSR;
++        break;
++    default:
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++
++    return ret;
++}
++
++static void uc64_ost_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    UC64OTMState *s = opaque;
++
++    switch (offset) {
++    case 0x00: /* Match Register */
++        s->reg_OSMR0 = (uint32_t)value;
++        if (s->reg_OSMR0 > s->reg_OSCR) {
++            ptimer_set_count(s->ptimer, s->reg_OSMR0 - s->reg_OSCR);
++        } else {
++            ptimer_set_count(s->ptimer, s->reg_OSMR0
++                    + (0xffffffff - s->reg_OSCR));
++        }
++        ptimer_run(s->ptimer, 0);
++        break;
++    case 0x14:
++        s->reg_OSSR = (uint32_t)value;
++        if (!(s->reg_OSSR & 0x1)) {
++            qemu_irq_lower(s->irq_otimer);
++        }
++        break;
++    default:
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++}
++
++static const MemoryRegionOps uc64_ost_ops = {
++    .read = uc64_ost_read,
++    .write = uc64_ost_write,
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static void uc64_ost_tick(void *opaque)
++{
++    UC64OTMState *s = opaque;
++
++    s->reg_OSCR = s->reg_OSMR0;
++    s->reg_OSSR |= 0x1;
++    //qemu_irq_raise(s->irq_otimer);
++}
++
++static int uc64_ost_init(SysBusDevice *dev)
++{
++    UC64OTMState *s = FROM_SYSBUS(UC64OTMState, dev);
++
++    s->reg_OSMR0 = 0;
++    s->reg_OSCR = 0;
++    s->reg_OSSR = 0;
++
++    sysbus_init_irq(dev, &s->irq_otimer);
++
++    s->bh = qemu_bh_new(uc64_ost_tick, s);
++    s->ptimer = ptimer_init(s->bh);
++    ptimer_set_freq(s->ptimer, 4 * 1024 * 1024);
++
++    memory_region_init_io(&s->iomem, &uc64_ost_ops,
++            s, "uc64_ost", PUV4_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void uc64_ost_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = uc64_ost_init;
++}
++
++static const TypeInfo uc64_ost_info = {
++    .name = "uc64_ost",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(UC64OTMState),
++    .class_init = uc64_ost_class_init,
++};
++
++static void uc64_ost_register_type(void)
++{
++    type_register_static(&uc64_ost_info);
++}
++
++type_init(uc64_ost_register_type)
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index bbeed24..b7a8d1a 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -15,6 +15,8 @@
+ #define UC64_CP0_INTRTYPE_ITM   (1 << 7)
+ #define UC64_CP0_INTRTYPE_DEV   (1 << 9)
+ #define UC64_CP0_INTRTYPE_IPI   (0x600) /* Inner Processor Interrupt */
++#define UC64_CP0_HIGH_LEVEL     UC64_CP0_TYPE_OTM
++#define UC64_CP0_TYPE_OTM       (1 << 3)
+ 
+ qemu_irq *uc64_cpu0_intc;
+ qemu_irq *uc64_cpu1_intc;
+@@ -29,6 +31,9 @@ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int val)
+         env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_IPI;
+         qemu_irq_lower(uc64_cpu1_intc[0]);
+     }
++    if (val == UC64_INTR_OTM) {
++        qemu_irq_lower(uc64_cpu0_intc[UC64_INTR_OTM]);
++    }
+ }
+ 
+ void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int irq)
+@@ -56,27 +61,37 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+         mask = 1<<(env->cpu_index + 9);
+         env->cp0.c10_intrtype |= mask;
+         irq = UC64_CP0_INTRTYPE_IPI;
++    } else if (irq == UC64_INTR_OTM) {
++        irq = UC64_CP0_TYPE_OTM;
+     } else {
+         abort();
+     }
+ 
+     if (level) {
+-        env->cp0.c10_intrtype |= irq;
++        if (!(irq & UC64_CP0_HIGH_LEVEL)) {
++            env->cp0.c10_intrtype |= irq;
++        }
+         if (irq == UC64_CP0_INTRTYPE_ITM) {
+             cpu_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
+         } else if (irq == UC64_CP0_INTRTYPE_DEV) {
+             cpu_interrupt(env, CPU_INTERRUPT_HARD);
+         } else if (irq == UC64_CP0_INTRTYPE_IPI) {
+             cpu_interrupt(env, CPU_INTERRUPT_SMP);
++        } else if (irq == UC64_CP0_TYPE_OTM) {
++            cpu_interrupt(env, CPU_INTERRUPT_OTM);
+         }
+     } else {
+-        env->cp0.c10_intrtype &= ~irq;
++        if (!(irq & UC64_CP0_HIGH_LEVEL)) {
++            env->cp0.c10_intrtype &= ~irq;
++        }
+         if (irq == UC64_CP0_INTRTYPE_ITM) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
+         } else if (irq == UC64_CP0_INTRTYPE_DEV) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+         } else if (irq == UC64_CP0_INTRTYPE_IPI) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_SMP);
++        } else if (irq == UC64_CP0_TYPE_OTM) {
++            cpu_reset_interrupt(env, CPU_INTERRUPT_OTM);
+         }
+     }
+ }
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index d507b7e..27796be 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -108,6 +108,7 @@ typedef struct CPUUniCore64State {
+ #define UC64_INTR_IPI           0x18
+ #define UC64_INTR_ITIMER        0x20
+ #define UC64_INTR_PUV4          0x24
++#define UC64_INTR_OTIMER        0x28
+ 
+ /* Return the current ASR value.  */
+ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+@@ -127,6 +128,7 @@ void cpu_afr_write(CPUUniCore64State *env, target_ulong val, target_ulong msk);
+ 
+ /* UniCore64-specific interrupt pending bits. */
+ #define CPU_INTERRUPT_SMP    0x600
++#define CPU_INTERRUPT_OTM    CPU_INTERRUPT_TGT_INT_2
+ 
+ CPUUniCore64State *uc64_cpu_init(const char *cpu_model);
+ int uc64_cpu_exec(CPUUniCore64State *s);
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 922cb3b..c845ba9 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -145,6 +145,9 @@ void do_interrupt(CPUUniCore64State *env)
+     case UC64_EXCP_PRIV:
+         trace_uc64_do_interrupt("SYSCALL", env->uncached_asr);
+         break;
++    case UC64_INTR_OTIMER:
++        trace_uc64_do_interrupt("OTIMER", env->uncached_asr);
++        break;
+     default:
+         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
+         return;
+@@ -292,6 +295,12 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+             prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+             page_size = TARGET_PAGE_SIZE;
+             ret = 0;
++        } else if ((address & 0xffffffffee800000ULL)
++                == 0xffffffffee800000ULL) {
++            phys_addr = address & 0x0000000fffffffffULL;
++            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
++            page_size = TARGET_PAGE_SIZE;
++            ret = 0;
+         } else {
+             ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
+                     &prot, &page_size);
+-- 
+1.7.9.5
+

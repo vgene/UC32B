@@ -1,0 +1,104 @@
+From 3f3bcc1cc5072452cd2d4c1c53bce046834d4178 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 21 Aug 2012 10:34:19 +0800
+Subject: [PATCH 175/247] unicore64: Add ULL suffix to avoid compiling warning
+ in 32-bit server
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4.h                    |    4 ++--
+ hw/puv4_cp0_itm.c            |    2 +-
+ target-unicore64/softmmu.c   |   10 +++++-----
+ target-unicore64/translate.c |    6 +++---
+ 4 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/hw/puv4.h b/hw/puv4.h
+index 0d6e97d..80f27c7 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -21,8 +21,8 @@
+ 
+ #define UC64_CP0_INTRTYPE_ITM   (1 << 7)
+ 
+-#define UC64_CP0_INTC_BASE      (0xf10000000) /* FAKE */
+-#define UC64_CP0_ITM_BASE       (0xf20000000) /* FAKE */
++#define UC64_CP0_INTC_BASE      (0xf10000000ULL) /* FAKE */
++#define UC64_CP0_ITM_BASE       (0xf20000000ULL) /* FAKE */
+ 
+ extern uint64_t cp0_c10_0_INTR_TYPE;
+ 
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+index ae43a0f..2372f2e 100644
+--- a/hw/puv4_cp0_itm.c
++++ b/hw/puv4_cp0_itm.c
+@@ -75,7 +75,7 @@ static void uc64_cp0_itm_write(void *opaque, target_phys_addr_t offset,
+             ptimer_set_count(s->ptimer, s->reg_ITIMERMR - s->reg_ITIMERCR);
+         } else {
+             ptimer_set_count(s->ptimer, s->reg_ITIMERMR +
+-                    (0xffffffffffffffff - s->reg_ITIMERCR));
++                    (0xffffffffffffffffULL - s->reg_ITIMERCR));
+         }
+         ptimer_run(s->ptimer, 2);
+         break;
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index d5a5da0..6bc23fe 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -213,7 +213,7 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+         page_size = TARGET_PAGE_SIZE;
+         ret = 0;
+     } else {
+-        if ((address & 0xffffffff00000000) == 0xf00000000) {
++        if ((address & 0xffffffff00000000ULL) == 0xf00000000ULL) {
+             /* IO memory */
+             phys_addr = address;
+             prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+@@ -224,10 +224,10 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+                             &prot, &page_size);
+         }
+         /* Following printf is only used for debug */
+-        if ((address & 0xfffffff000000000) != 0xfffffff000000000) {
+-        if ((address & 0xffffffff00000000) != 0xf00000000) {
+-        if (((address & 0xfffffffffff00000) < 0x400000) ||
+-            ((address & 0xfffffffffff00000) > 0x900000)) {
++        if ((address & 0xfffffff000000000ULL) != 0xfffffff000000000ULL) {
++        if ((address & 0xffffffff00000000ULL) != 0xf00000000ULL) {
++        if (((address & 0xfffffffffff00000ULL) < 0x400000ULL) ||
++            ((address & 0xfffffffffff00000ULL) > 0x900000ULL)) {
+             DPRINTF("va %" PRIx64 " pa %" PRIx64 " pc %" PRIx64 "\n",
+                     address, phys_addr, env->regs[31]);
+         }
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 39648ca..c3a7312 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -103,7 +103,7 @@ static inline void gen_write_fakeicmr(TCGv_i64 t_flag_64)
+ {
+     TCGv_i64 t_addr_64 = tcg_temp_new_i64();
+ 
+-    tcg_gen_movi_i64(t_addr_64, 0xf10000010);
++    tcg_gen_movi_i64(t_addr_64, 0xf10000010ULL);
+     tcg_gen_qemu_st64(t_flag_64, t_addr_64, 1);
+     tcg_temp_free_i64(t_addr_64);
+ }
+@@ -1213,7 +1213,7 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         if (UCOP_SET(25)) { /* load */
+             tcg_gen_movi_i64(t_creg_64, UCOP_REG_S1);
+             if (UCOP_REG_S1 == 10) { /* Special handler for creg10 */
+-                tcg_gen_movi_i64(t_cop_64, 0xf20000000 | (UCOP_IMM_9 << 4));
++                tcg_gen_movi_i64(t_cop_64, 0xf20000000ULL | (UCOP_IMM_9 << 4));
+                 tcg_gen_qemu_ld64(t_creg_64, t_cop_64, 1);
+             } else {
+                 gen_helper_cp0_get(t_creg_64, cpu_env, t_creg_64, t_cop_64);
+@@ -1222,7 +1222,7 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         } else { /* store */
+             tcg_gen_movi_i64(t_creg_64, UCOP_REG_D);
+             if (UCOP_REG_D == 10) { /* Special handler for creg10 */
+-                tcg_gen_movi_i64(t_cop_64, 0xf20000000 | (UCOP_IMM_9 << 4));
++                tcg_gen_movi_i64(t_cop_64, 0xf20000000ULL | (UCOP_IMM_9 << 4));
+                 tcg_gen_qemu_st64(cpu_R[UCOP_REG_S1], t_cop_64, 1);
+             } else {
+                 gen_helper_cp0_set(cpu_env, cpu_R[UCOP_REG_S1], t_creg_64,
+-- 
+1.7.9.5
+

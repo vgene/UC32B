@@ -1,0 +1,48 @@
+From aff328145726b4f444ec5defa91b7387247b691c Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Tue, 14 Aug 2012 04:06:22 +0800
+Subject: [PATCH 107/247] unicore64-softmmu: replace r30 with cp0 exception
+ address
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h     |    3 ++-
+ target-unicore64/softmmu.c |    4 ++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index e56e93f..96bdb93 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -52,7 +52,8 @@ typedef struct CPUUniCore64State {
+         uint64_t c2_base; /* MMU translation table base.  */
+         uint64_t c3_faultstatus; /* Fault status registers.  */
+         uint64_t c4_faultaddr; /* Fault address registers.  */
+-        uint64_t c9_excpaddr;
++        uint64_t c4_excpaddr; /* Exception address register.*/
++        uint64_t c9_excpbase; /* Exception base register. */
+     } cp0;
+ 
+     CPU_COMMON
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 056b4b4..e88a3cd 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -109,12 +109,12 @@ void do_interrupt(CPUUniCore64State *env)
+         return;
+     }
+     /* Get exception virtual base address , only least 39 bits available */
+-    addr += (env->cp0.c9_excpaddr & 0x7fffffffffULL);
++    addr += (env->cp0.c9_excpbase & 0x7fffffffffULL);
+ 
+     env->uncached_asr = (env->uncached_asr & ~ASR_MODE_SELECT) | new_mode;
+     env->uncached_asr |= ASR_INTR_SELECT;
+     /* the PC already points to the proper instruction. */
+-    env->regs[30] = env->regs[31];
++    env->cp0.c4_excpaddr = env->regs[31];
+     env->regs[31] = addr;
+     env->interrupt_request |= CPU_INTERRUPT_EXITTB;
+ }
+-- 
+1.7.9.5
+

@@ -1,0 +1,26 @@
+From 5ed661a61d99ee683bb733368ab9dcf3c91cb7e3 Mon Sep 17 00:00:00 2001
+From: HeDan <hedan@mprc.pku.edu.cn>
+Date: Wed, 13 Mar 2013 14:24:42 +0800
+Subject: [PATCH 245/247] unicore64: gdbstub adjust write register support
+
+Signed-off-by: HeDan <hedan@mprc.pku.edu.cn>
+---
+ gdbstub.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gdbstub.c b/gdbstub.c
+index 2590040..2d9d0a8 100644
+--- a/gdbstub.c
++++ b/gdbstub.c
+@@ -1043,7 +1043,7 @@ static int cpu_gdb_write_register(CPUUniCore64State *env,
+ {
+     uint64_t tmp;
+ 
+-    tmp = ldl_p(mem_buf);
++    tmp = ldq_p(mem_buf);
+ 
+     if (n == 31) {
+         tmp &= ~1;
+-- 
+1.7.9.5
+

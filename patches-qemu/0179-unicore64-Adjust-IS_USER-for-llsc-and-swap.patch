@@ -1,0 +1,81 @@
+From 5bac0c725aefaea41837b1d6b7a01afb6f3e4621 Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Thu, 6 Sep 2012 18:02:50 +0800
+Subject: [PATCH 179/247] unicore64: Adjust IS_USER for llsc and swap
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index f428db1..36b94a5 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1038,15 +1038,15 @@ static void do_swap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     if (UCOP_SET(22)) { /* Double word */
+         ILLEGAL_INSN(UCOP_SET(21));
+ 
+-        tcg_gen_qemu_ld64(cpu_R[UCOP_REG_D], t_addr, 1);
+-        tcg_gen_qemu_st64(t_op2_64, t_addr, 1);
++        tcg_gen_qemu_ld64(cpu_R[UCOP_REG_D], t_addr, IS_USER(s));
++        tcg_gen_qemu_st64(t_op2_64, t_addr, IS_USER(s));
+     } else {
+         if (UCOP_SET(21)) { /* Byte */
+-            tcg_gen_qemu_ld8u(cpu_R[UCOP_REG_D], t_addr, 1);
+-            tcg_gen_qemu_st8(t_op2_64, t_addr, 1);
++            tcg_gen_qemu_ld8u(cpu_R[UCOP_REG_D], t_addr, IS_USER(s));
++            tcg_gen_qemu_st8(t_op2_64, t_addr, IS_USER(s));
+         } else { /* Word */
+-            tcg_gen_qemu_ld32u(cpu_R[UCOP_REG_D], t_addr, 1);
+-            tcg_gen_qemu_st32(t_op2_64, t_addr, 1);
++            tcg_gen_qemu_ld32u(cpu_R[UCOP_REG_D], t_addr, IS_USER(s));
++            tcg_gen_qemu_st32(t_op2_64, t_addr, IS_USER(s));
+         }
+     }
+ 
+@@ -1107,9 +1107,9 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+     if (UCOP_SET(25)) { /* ll */
+         if (UCOP_SET(22)) { /* double word */
+-            tcg_gen_qemu_ld64(cpu_R[UCOP_REG_D], t_addr, 1);
++            tcg_gen_qemu_ld64(cpu_R[UCOP_REG_D], t_addr, IS_USER(s));
+         } else { /* word */
+-            tcg_gen_qemu_ld32u(cpu_R[UCOP_REG_D], t_addr, 1);
++            tcg_gen_qemu_ld32u(cpu_R[UCOP_REG_D], t_addr, IS_USER(s));
+         }
+ 
+         tcg_gen_mov_i64(ex_addr_LL, t_addr);
+@@ -1123,9 +1123,9 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+             tcg_gen_mov_i64(t_rd_64, cpu_R[UCOP_REG_D]);
+             if (UCOP_SET(22)) { /* double word */
+-                tcg_gen_qemu_st64(t_rd_64, ex_addr_LL, 1);
++                tcg_gen_qemu_st64(t_rd_64, ex_addr_LL, IS_USER(s));
+             } else { /* word */
+-                tcg_gen_qemu_st32(t_rd_64, ex_addr_LL, 1);
++                tcg_gen_qemu_st32(t_rd_64, ex_addr_LL, IS_USER(s));
+             }
+ 
+             /* Now, t_rd_64 is used for LLbit */
+@@ -1221,7 +1221,7 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             tcg_gen_movi_i64(t_creg_64, UCOP_REG_S1);
+             if (UCOP_REG_S1 == 10) { /* Special handler for creg10 */
+                 tcg_gen_movi_i64(t_cop_64, 0xf20000000ULL | (UCOP_IMM_9 << 4));
+-                tcg_gen_qemu_ld64(t_creg_64, t_cop_64, 1);
++                tcg_gen_qemu_ld64(t_creg_64, t_cop_64, IS_USER(s));
+             } else {
+                 gen_helper_cp0_get(t_creg_64, cpu_env, t_creg_64, t_cop_64);
+             }
+@@ -1230,7 +1230,7 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             tcg_gen_movi_i64(t_creg_64, UCOP_REG_D);
+             if (UCOP_REG_D == 10) { /* Special handler for creg10 */
+                 tcg_gen_movi_i64(t_cop_64, 0xf20000000ULL | (UCOP_IMM_9 << 4));
+-                tcg_gen_qemu_st64(cpu_R[UCOP_REG_S1], t_cop_64, 1);
++                tcg_gen_qemu_st64(cpu_R[UCOP_REG_S1], t_cop_64, IS_USER(s));
+             } else {
+                 gen_helper_cp0_set(cpu_env, cpu_R[UCOP_REG_S1], t_creg_64,
+                         t_cop_64);
+-- 
+1.7.9.5
+

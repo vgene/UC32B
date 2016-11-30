@@ -1,0 +1,120 @@
+From 83318ca2dd99f65847ede5cef31ba7ebb325f86d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 10 Aug 2012 21:06:31 +0800
+Subject: [PATCH 075/247] unicore64: Add jepriv handler
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ linux-user/main.c            |   14 ++++++++++++++
+ target-unicore64/cpu.h       |    2 ++
+ target-unicore64/helper.c    |    6 ++++++
+ target-unicore64/helper.h    |    1 +
+ target-unicore64/translate.c |   19 ++++++++++++++++++-
+ 5 files changed, 41 insertions(+), 1 deletion(-)
+
+diff --git a/linux-user/main.c b/linux-user/main.c
+index 4f09020..88e413f 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -1000,12 +1000,26 @@ error:
+ void cpu_loop(CPUUniCore64State *env)
+ {
+     int trapnr;
++    unsigned int syscall_nr, insn;
+ 
+     for (;;) {
+         cpu_exec_start(env);
+         trapnr = uc64_cpu_exec(env);
+         cpu_exec_end(env);
+         switch (trapnr) {
++        case UC64_EXCP_PRIV:
++            /* Get system call number, only least 16 bits available */
++            get_user_u64(insn, env->regs[31]);
++
++            if ((insn & 0xffff0000) != 0xf0000000) {
++                goto error;
++            }
++
++            syscall_nr = insn & 0xffff;
++            env->regs[0] = do_syscall(env, syscall_nr,
++                    env->regs[0], env->regs[1], env->regs[2],
++                    env->regs[3], env->regs[4], env->regs[5], 0, 0);
++            break;
+         case EXCP_INTERRUPT:
+             goto error; /* FIXME */
+             break;
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 6a42859..509c3fc 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -65,6 +65,8 @@ typedef struct CPUUniCore64State {
+ #define AFR_N                   (1 << 3)
+ #define AFR_SZCV                (AFR_S | AFR_Z | AFR_C | AFR_V)
+ 
++#define UC64_EXCP_PRIV          ASR_MODE_PRIV
++
+ /* Return the current ASR value.  */
+ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+ /* Set the ASR.  Note that some bits of mask must be all-set or all-clear.  */
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index c57c6b4..36e243d 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -49,6 +49,12 @@ void helper_cp1_putx(target_ulong x)
+     fflush(NULL);
+ }
+ 
++void HELPER(exception)(uint32_t excp)
++{
++    env->exception_index = excp;
++    cpu_loop_exit(env);
++}
++
+ void HELPER(afr_write)(uint32_t x)
+ {
+     env->NF = (x >> 3) & 0x1;
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 7b8e8f9..fed5f62 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -11,6 +11,7 @@
+ DEF_HELPER_1(cp1_putc, void, i64)
+ DEF_HELPER_1(cp1_putx, void, i64)
+ 
++DEF_HELPER_1(exception, void, i32)
+ DEF_HELPER_0(afr_read, i32)
+ DEF_HELPER_1(afr_write, void, i32)
+ DEF_HELPER_2(sub_cc_i32, i32, i32, i32)
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 23d0646..21fcbd1 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -879,7 +879,24 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+ static void do_exception(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
+-    ILLEGAL_INSN(true);
++    TCGv_i32 tmp;
++
++    if ((insn & 0xff000000) == 0xf0000000) { /* JEPRIV instruction */
++        /*
++         * NO BSR ASR BFR AFR handling
++         */
++        ILLEGAL_INSN((insn & 0x00ff0000) != 0); /* Least 16 bits available */
++
++        tmp = tcg_temp_new_i32();
++        tcg_gen_movi_i64(cpu_R[31], s->dc_pc + 4);
++        tcg_gen_movi_i32(tmp, UC64_EXCP_PRIV);
++        gen_helper_exception(tmp);
++        tcg_temp_free_i32(tmp);
++
++        s->dc_jmp = DISAS_TB_JUMP;
++    } else {
++        ILLEGAL_INSN(true);
++    }
+ }
+ 
+ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+-- 
+1.7.9.5
+

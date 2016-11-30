@@ -1,0 +1,27 @@
+From 8755f03d0b36a619b614e19ec70807686678d2ea Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 6 Aug 2012 23:24:57 +0800
+Subject: [PATCH 029/247] unicore64: Adjust output format to adapt to both
+ 32bit and 64bit servers
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 4b87509..2d03e8c 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -245,7 +245,7 @@ void cpu_dump_state(CPUUniCore64State *env, FILE *f,
+     int i;
+ 
+     for (i = 0; i < 32; i++) {
+-        cpu_fprintf(f, "R%02d=%16llx", i, env->regs[i]);
++        cpu_fprintf(f, "R%02d=%16" PRIx64, i, env->regs[i]);
+         if ((i % 4) == 3) {
+             cpu_fprintf(f, "\n");
+         } else {
+-- 
+1.7.9.5
+

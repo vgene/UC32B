@@ -1,0 +1,49 @@
+From 5d1a9486ed625b75a0742c14f7fbb462a566fd65 Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Fri, 10 Aug 2012 19:10:06 +0800
+Subject: [PATCH 067/247] unicore64: Add datap when rs is pc
+
+Signed-off-by: Song Tianbao <songtianbao@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 64f6f1a..f0301f8 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -301,10 +301,12 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+     /* Prepare op1 if two operands */
+     if ((UCOP_OPCODE != 0x0d) && (UCOP_OPCODE != 0x0f)) {
+-        ILLEGAL_INSN(UCOP_REG_S1 == 31);
+-
+         t_op1_64 = tcg_temp_new_i64();
+-        tcg_gen_mov_i64(t_op1_64, cpu_R[UCOP_REG_S1]);
++        if (UCOP_REG_S1 == 31) {
++            tcg_gen_movi_i64(t_op1_64, s->dc_pc - 4);
++        } else {
++            tcg_gen_mov_i64(t_op1_64, cpu_R[UCOP_REG_S1]);
++        }
+ 
+         if (!UCOP_SET(22)) { /* If word, not Double word */
+             t_op1_32 = tcg_temp_new_i32();
+@@ -317,10 +319,12 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     if (UCOP_SET(21)) { /* reg or imm */
+         tcg_gen_movi_i64(t_op2_64, UCOP_IMM11);
+     } else {
+-        ILLEGAL_INSN(UCOP_REG_S2 == 31);
+         ILLEGAL_INSN(UCOP_IMM_6);
+-
+-        tcg_gen_mov_i64(t_op2_64, cpu_R[UCOP_REG_S2]);
++        if (UCOP_REG_S2 == 31) {
++            tcg_gen_movi_i64(t_op2_64, s->dc_pc - 4);
++        } else {
++            tcg_gen_mov_i64(t_op2_64, cpu_R[UCOP_REG_S2]);
++        }
+     }
+ 
+     if (!UCOP_SET(22)) { /* If word, not Double word */
+-- 
+1.7.9.5
+

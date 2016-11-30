@@ -1,0 +1,74 @@
+From 650cd5f80662c6dd1b2ad80cdf8ad2dc7b320467 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 15:01:26 +0800
+Subject: [PATCH 205/247] unicore64: Adjust uc64_cp0_itm_read implem
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4_cp0_itm.c         |   16 ++--------------
+ target-unicore64/cpu.h    |    2 +-
+ target-unicore64/helper.c |    7 ++++---
+ 3 files changed, 7 insertions(+), 18 deletions(-)
+
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+index 57f92ac..94f67ba 100644
+--- a/hw/puv4_cp0_itm.c
++++ b/hw/puv4_cp0_itm.c
+@@ -25,21 +25,9 @@ typedef struct {
+ 
+ static UC64CP0State *puv4_timer;
+ 
+-uint64_t uc64_cp0_itm_read(CPUUniCore64State *env, uint64_t imm)
++uint64_t uc64_cp0_itimer_get_delta(void)
+ {
+-    uint64_t ret = 0;
+-    switch (imm) {
+-    case 0: /* Interrupt type */
+-        ret = env->cp0.c10_intrtype;
+-        break;
+-    case 9: /* Counter Register */
+-        ret = env->cp0.c10_itimermr -
+-            (uint64_t)ptimer_get_count(puv4_timer->ptimer);
+-        break;
+-    default:
+-        DPRINTF("Bad immediate number %x\n", (int)imm);
+-    }
+-    return ret;
++    return (uint64_t)ptimer_get_count(puv4_timer->ptimer);
+ }
+ 
+ void uc64_cp0_itm_write(CPUUniCore64State *env, uint64_t imm, uint64_t value)
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index abdbe11..dcffa95 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -176,7 +176,7 @@ static inline bool cpu_has_work(CPUUniCore64State *env)
+ }
+ 
+ /*puv4_cp0_itm.c*/
+-uint64_t uc64_cp0_itm_read(CPUUniCore64State *env, uint64_t imm);
++uint64_t uc64_cp0_itimer_get_delta(void);
+ void uc64_cp0_itm_write(CPUUniCore64State *env, uint64_t imm, uint64_t value);
+ 
+ #endif /* QEMU_UNICORE64_CPU_H */
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index fd7f54c..7b6f3f4 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -327,9 +327,10 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+         break;
+     case 10:
+         switch (cop) {
+-        case 0:
+-        case 9:
+-            return uc64_cp0_itm_read(env, cop);
++        case 0: /* Interrupt type */
++            return env->cp0.c10_intrtype;
++        case 9: /* Counter Register */
++            return env->cp0.c10_itimermr - uc64_cp0_itimer_get_delta();
+         }
+         break;
+     case 11:
+-- 
+1.7.9.5
+

@@ -1,0 +1,42 @@
+From 62394b414bf8bc6f0dff3626c916f68ac630c10a Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 25 Mar 2014 23:05:13 +0800
+Subject: [PATCH 243/247] unicore64: Fix share IO reg multiple definition
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/puv4_io_ctl.c       |    3 ++-
+ target-unicore64/cpu.h |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/hw/puv4_io_ctl.c b/hw/puv4_io_ctl.c
+index c7a6f1c..cc2118b 100644
+--- a/hw/puv4_io_ctl.c
++++ b/hw/puv4_io_ctl.c
+@@ -7,8 +7,9 @@
+ typedef struct {
+     SysBusDevice busdev;
+     MemoryRegion iomem;
+-    uint32_t reg_IO; /* IO share reg */
++    uint32_t reg_IO;    /* IO share reg */
+ } UC64IOState;
++uint32_t share_io_reg;  /* Fake share IO reg */
+ 
+ static uint64_t uc64_io_ctl_read(void *opaque, target_phys_addr_t offset,
+         unsigned size)
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 05127a3..c795789 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -204,7 +204,7 @@ static inline bool cpu_has_work(CPUUniCore64State *env)
+ #define UC64_INTR_DEV           (4)
+ #define UC64_INTR_PFM           (5)
+ 
+-uint32_t share_io_reg;  /* Fake share IO reg */
++extern uint32_t share_io_reg;   /* Fake share IO reg */
+ 
+ /* cp0_itm.c */
+ void uc64_cp0_itm_init(CPUUniCore64State *env);
+-- 
+1.7.9.5
+

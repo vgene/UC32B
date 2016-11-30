@@ -1,0 +1,35 @@
+From 868cf4d71f5988020e38ae91839d47a81a83be3f Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Sun, 14 Oct 2012 13:05:20 +0800
+Subject: [PATCH 188/247] unicore64: Add IS_USER for ldst_user
+
+Signed-off-by: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 109fbf6..66587e9 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1066,7 +1066,7 @@ static void do_ldst_user(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             ILLEGAL_INSN(true);
+             break;
+         case 1:
+-            tcg_gen_qemu_ld64(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_ld64(t_rd_64, t_addr, IS_USER(s));
+             break;
+         }
+     } else { /* store */
+@@ -1084,7 +1084,7 @@ static void do_ldst_user(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+         switch (UCOP_LDST_BHD) {
+         case 1:
+-            tcg_gen_qemu_st64(t_rd_64, t_addr, 1);
++            tcg_gen_qemu_st64(t_rd_64, t_addr, IS_USER(s));
+             break;
+         default:
+             ILLEGAL_INSN(true);
+-- 
+1.7.9.5
+

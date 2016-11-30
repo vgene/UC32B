@@ -1,0 +1,107 @@
+From 8a55d8d455fd7435dd7e82d03a8ee9f147d301b1 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 18:40:53 +0800
+Subject: [PATCH 239/247] unicore64: Fix uc64 irq handler
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ cpu-exec.c              |    2 +-
+ hw/unicore64/cp0_intc.c |   38 ++++++++++++++++++++------------------
+ target-unicore64/cpu.h  |    3 ++-
+ 3 files changed, 23 insertions(+), 20 deletions(-)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 9c2c585..924f913 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -466,7 +466,7 @@ int cpu_exec(CPUArchState *env)
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
+-                    if ((interrupt_request & CPU_INTERRUPT_TGT_INT_0)
++                    if ((interrupt_request & CPU_INTERRUPT_ITM)
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
+                         env->exception_index = UC64_INTR_ITIMER;
+                         do_interrupt(env);
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index 0029dda..9ea07fc 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -23,24 +23,26 @@ qemu_irq *uc64_cpu1_intc;
+ 
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int val)
+ {
+-    if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
+-        env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
+-        if (env->cpu_index == 0) {
+-            qemu_irq_lower(uc64_cpu0_intc[2]);
+-        } else {
+-            qemu_irq_lower(uc64_cpu1_intc[2]);
++    if (env->cp0.c10_intrtype & ~val) {
++        if (~val & UC64_CP0_INTRTYPE_ITM) {
++            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
++            if (env->cpu_index == 0) {
++                qemu_irq_lower(uc64_cpu0_intc[2]);
++            } else {
++                qemu_irq_lower(uc64_cpu1_intc[2]);
++            }
+         }
+-    }
+-    if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_IPI) {
+-        env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_IPI;
+-        if (env->cpu_index == 0) {
+-            qemu_irq_lower(uc64_cpu0_intc[0]);
+-        } else {
+-            qemu_irq_lower(uc64_cpu1_intc[0]);
++        if (~val & UC64_CP0_INTRTYPE_IPI) {
++            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_IPI;
++            if (env->cpu_index == 0) {
++                qemu_irq_lower(uc64_cpu0_intc[0]);
++            } else {
++                qemu_irq_lower(uc64_cpu1_intc[0]);
++            }
++        }
++        if (~val & UC64_INTR_OTM) {
++            qemu_irq_lower(uc64_cpu0_intc[UC64_INTR_OTM]);
+         }
+-    }
+-    if (val == UC64_INTR_OTM) {
+-        qemu_irq_lower(uc64_cpu0_intc[UC64_INTR_OTM]);
+     }
+ }
+ 
+@@ -77,7 +79,7 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+             env->cp0.c10_intrtype |= irq;
+         }
+         if (irq == UC64_CP0_INTRTYPE_ITM) {
+-            cpu_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
++            cpu_interrupt(env, CPU_INTERRUPT_ITM);
+         } else if (irq == UC64_CP0_INTRTYPE_DEV) {
+             cpu_interrupt(env, CPU_INTERRUPT_HARD);
+         } else if (irq == UC64_CP0_INTRTYPE_IPI) {
+@@ -90,7 +92,7 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+             env->cp0.c10_intrtype &= ~irq;
+         }
+         if (irq == UC64_CP0_INTRTYPE_ITM) {
+-            cpu_reset_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
++            cpu_reset_interrupt(env, CPU_INTERRUPT_ITM);
+         } else if (irq == UC64_CP0_INTRTYPE_DEV) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+         } else if (irq == UC64_CP0_INTRTYPE_IPI) {
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 3e2600f..c769480 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -127,7 +127,8 @@ void cpu_afr_write(CPUUniCore64State *env, target_ulong val, target_ulong msk);
+ #define cpu_handle_mmu_fault            uc64_cpu_handle_mmu_fault
+ 
+ /* UniCore64-specific interrupt pending bits. */
+-#define CPU_INTERRUPT_SMP    0x600
++#define CPU_INTERRUPT_ITM    CPU_INTERRUPT_TGT_INT_0
++#define CPU_INTERRUPT_SMP    CPU_INTERRUPT_TGT_INT_1
+ #define CPU_INTERRUPT_OTM    CPU_INTERRUPT_TGT_INT_2
+ 
+ CPUUniCore64State *uc64_cpu_init(const char *cpu_model);
+-- 
+1.7.9.5
+

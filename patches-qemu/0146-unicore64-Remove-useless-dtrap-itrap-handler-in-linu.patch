@@ -1,0 +1,29 @@
+From 35e72f8459681ea2156f011d0110d45af1d32536 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 00:41:19 +0800
+Subject: [PATCH 146/247] unicore64: Remove useless dtrap/itrap handler in
+ linux-user/main.c
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ linux-user/main.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/linux-user/main.c b/linux-user/main.c
+index dd36fe4..19bba1a 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -1020,10 +1020,6 @@ void cpu_loop(CPUUniCore64State *env)
+                     env->regs[0], env->regs[1], env->regs[2],
+                     env->regs[3], env->regs[4], env->regs[5], 0, 0);
+             break;
+-        case UC64_EXCP_DTRAP:
+-        case UC64_EXCP_ITRAP:
+-            goto error; /* FIXME */
+-            break;
+         case EXCP_INTERRUPT:
+             /* just indicate that signals should be handled asap */
+             break;
+-- 
+1.7.9.5
+

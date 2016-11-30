@@ -1,0 +1,79 @@
+From 8064cc5e6d9ad403613370852a14076d317c275b Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 15:32:06 +0800
+Subject: [PATCH 088/247] unicore64-bugfix: Change logic flag generation
+ method of add/sub
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   48 +++++++++++++++++++++++++++++++-----------
+ 1 file changed, 36 insertions(+), 12 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 166099b..d3ef8f2 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -459,24 +459,48 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         logic_flag = true;
+         break;
+     case 0x02: /* insn sub dsub */
+-        if (UCOP_SET(22)) { /* insn dsub */
+-            tcg_gen_sub_i64(t_op2_64, t_op1_64, t_op2_64);
+-        } else { /* insn sub */
+-            tcg_gen_sub_i32(t_op2_32, t_op1_32, t_op2_32);
++        if (!UCOP_SET(23)) { /* S bit */
++            if (UCOP_SET(22)) { /* insn DSUB */
++                tcg_gen_sub_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn SUB */
++                tcg_gen_sub_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
++        } else {
++            if (UCOP_SET(22)) { /* insn DSUB */
++                gen_helper_sub_cc_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn SUB */
++                gen_helper_sub_cc_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
+         }
+         break;
+     case 0x03: /* insn rsub drsub */
+-        if (UCOP_SET(22)) { /* insn drsub */
+-            tcg_gen_sub_i64(t_op2_64, t_op2_64, t_op1_64);
+-        } else { /* insn rsub */
+-            tcg_gen_sub_i32(t_op2_32, t_op2_32, t_op1_32);
++        if (!UCOP_SET(23)) { /* S bit */
++            if (UCOP_SET(22)) { /* insn DRSUB */
++                tcg_gen_sub_i64(t_op2_64, t_op2_64, t_op1_64);
++            } else { /* insn RSUB */
++                tcg_gen_sub_i32(t_op2_32, t_op2_32, t_op1_32);
++            }
++        } else {
++            if (UCOP_SET(22)) { /* insn DRSUB */
++                gen_helper_sub_cc_i64(t_op2_64, t_op2_64, t_op1_64);
++            } else { /* insn RSUB */
++                gen_helper_sub_cc_i32(t_op2_32, t_op2_32, t_op1_32);
++            }
+         }
+         break;
+     case 0x04: /* insn ADD DADD */
+-        if (UCOP_SET(22)) { /* insn DADD */
+-            tcg_gen_add_i64(t_op2_64, t_op1_64, t_op2_64);
+-        } else { /* insn ADD */
+-            tcg_gen_add_i32(t_op2_32, t_op1_32, t_op2_32);
++        if (!UCOP_SET(23)) { /* S bit */
++            if (UCOP_SET(22)) { /* insn DADD */
++                tcg_gen_add_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn ADD */
++                tcg_gen_add_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
++        } else {
++            if (UCOP_SET(22)) { /* insn DADD */
++                gen_helper_add_cc_i64(t_op2_64, t_op1_64, t_op2_64);
++            } else { /* insn ADD */
++                gen_helper_add_cc_i32(t_op2_32, t_op1_32, t_op2_32);
++            }
+         }
+         break;
+     case 0x0a: /* insn CMPSUB.A DCMPSUB.A */
+-- 
+1.7.9.5
+

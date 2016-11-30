@@ -1,0 +1,138 @@
+From 28b3570feab6aadb79a83b94b9fecab87b51bfa8 Mon Sep 17 00:00:00 2001
+From: Liu Wenhui <liuwenhui@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 18:11:45 +0800
+Subject: [PATCH 164/247] unicore64: Add insn fmov.t/fmov.f
+
+Signed-off-by: Liu Wenhui <liuwenhui@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.h       |    4 ++++
+ target-unicore64/ucf64_helper.c |   29 ++++++++++++++++++++++++++++-
+ target-unicore64/ucf64_trans.h  |   31 +++++++++++++++++++++++++++++++
+ 3 files changed, 63 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 510cd26..e4eb9b6 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -37,6 +37,10 @@ DEF_HELPER_2(ucf64_set_fpsr, void, env, i64)
+ DEF_HELPER_1(ucf64_get_fpcr, i64, env)
+ DEF_HELPER_2(ucf64_set_fpcr, void, env, i64)
+ 
++DEF_HELPER_4(ucf64_movts, void, f32, f32, i32, env)
++DEF_HELPER_4(ucf64_movtd, void, f64, f64, i32, env)
++DEF_HELPER_4(ucf64_movtw, void, f32, f32, i32, env)
++
+ DEF_HELPER_3(ucf64_adds, f32, f32, f32, env)
+ DEF_HELPER_3(ucf64_addd, f64, f64, f64, env)
+ DEF_HELPER_3(ucf64_subs, f32, f32, f32, env)
+diff --git a/target-unicore64/ucf64_helper.c b/target-unicore64/ucf64_helper.c
+index d44c882..06eb5bf 100644
+--- a/target-unicore64/ucf64_helper.c
++++ b/target-unicore64/ucf64_helper.c
+@@ -196,6 +196,33 @@ float64 HELPER(ucf64_absd)(float64 a)
+     return float64_abs(a);
+ }
+ 
++void HELPER(ucf64_movts)(float32 a, float32 b, uint32_t cond,
++                         CPUUniCore64State *env)
++{
++    if (((env->ucf64.fpcr & 0x2) && cond) ||
++        (!(env->ucf64.fpcr & 0x2) && (!cond))) {
++        a = b;
++    }
++}
++
++void HELPER(ucf64_movtd)(float64 a, float64 b, uint32_t cond,
++                         CPUUniCore64State *env)
++{
++    if (((env->ucf64.fpcr & 0x2) && cond) ||
++        (!(env->ucf64.fpcr & 0x2) && (!cond))) {
++        a = b;
++    }
++}
++
++void HELPER(ucf64_movtw)(float32 a, float32 b, uint32_t cond,
++                         CPUUniCore64State *env)
++{
++    if (((env->ucf64.fpcr & 0x2) && cond) ||
++        (!(env->ucf64.fpcr & 0x2) && (!cond))) {
++        a = b;
++    }
++}
++
+ void HELPER(ucf64_cmps)(float32 a, float32 b, uint32_t c,
+         CPUUniCore64State *env)
+ {
+@@ -289,7 +316,7 @@ void HELPER(ucf64_cmpd)(float64 a, float64 b, uint32_t c,
+         }
+         break;
+     }
+-    env->ucf64.fpsr = (env->CF << 29) | (env->ucf64.fpsr & 0x0fffffff);
++    env->ucf64.fpcr = (env->CF << 1) | (env->ucf64.fpcr & 0xf);
+ }
+ 
+ /* Helper routines to perform bitwise copies between float and int.  */
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 730cbef..9b8a266 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -228,11 +228,13 @@ static void do_ucf64_datap(CPUUniCore64State *env, DisasContext *s,
+     TCGv_i64 t_F0d;
+     TCGv_i32 t_F1s;
+     TCGv_i64 t_F1d;
++    TCGv_i32 t_cond;
+ 
+     t_F0s = tcg_temp_new_i32();
+     t_F0d = tcg_temp_new_i64();
+     t_F1s = tcg_temp_new_i32();
+     t_F1d = tcg_temp_new_i64();
++    t_cond = tcg_temp_new_i32();
+ 
+     ILLEGAL_INSN(UCOP_UCF64_FMT == 3);
+ 
+@@ -258,6 +260,34 @@ static void do_ucf64_datap(CPUUniCore64State *env, DisasContext *s,
+     case 7: /* neg */
+         UCF64_OP1(neg);
+         break;
++    case 9: /* mov.t mov.f */
++        ILLEGAL_INSN((insn >> 12) & 0xf);
++        if (UCOP_SET(11)) {
++            tcg_gen_movi_i32(t_cond, 1);
++        } else {
++            tcg_gen_movi_i32(t_cond, 0);
++        }
++        switch (UCOP_UCF64_FMT) {
++        case 0 /* s */:
++            tcg_gen_ld_i32(t_F0s, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
++            tcg_gen_ld_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            gen_helper_ucf64_movts(t_F1s, t_F0s, t_cond, cpu_env);
++            tcg_gen_st_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            break;
++        case 1 /* d */:
++            tcg_gen_ld_i64(t_F0d, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
++            tcg_gen_ld_i64(t_F1d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            gen_helper_ucf64_movtd(t_F1d, t_F0d, t_cond, cpu_env);
++            tcg_gen_st_i64(t_F1d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            break;
++        case 2 /* w */:
++            tcg_gen_ld_i32(t_F0s, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
++            tcg_gen_ld_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            gen_helper_ucf64_movtw(t_F1s, t_F0s, t_cond, cpu_env);
++            tcg_gen_st_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            break;
++        }
++        break;
+     default:
+         ILLEGAL_INSN(true);
+     }
+@@ -265,6 +295,7 @@ static void do_ucf64_datap(CPUUniCore64State *env, DisasContext *s,
+     tcg_temp_free_i64(t_F0d);
+     tcg_temp_free_i32(t_F1s);
+     tcg_temp_free_i64(t_F1d);
++    tcg_temp_free_i32(t_cond);
+ }
+ 
+ static void do_ucf64_ldst(CPUUniCore64State *env, DisasContext *s,
+-- 
+1.7.9.5
+

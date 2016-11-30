@@ -1,0 +1,40 @@
+From 9f0a80db4ec7767cd5d71a160e12f8ef9277c82f Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 9 Oct 2012 15:29:41 +0800
+Subject: [PATCH 186/247] unicore64: Adjust tcg_gen_debug_insn_start position
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 3fe0453..109fbf6 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1411,11 +1411,6 @@ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+ {
+     unsigned int insn;
+ 
+-    if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP |
+-                    CPU_LOG_TB_OP_OPT))) {
+-        tcg_gen_debug_insn_start(s->dc_pc);
+-    }
+-
+     insn = ldl_code(s->dc_pc);
+ 
+     /* UniCore64 instructions class:
+@@ -1535,6 +1530,10 @@ static inline void gen_intermediate_code_internal(CPUUniCore64State *env,
+             gen_io_start();
+         }
+ 
++        if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
++            tcg_gen_debug_insn_start(dc->dc_pc);
++        }
++
+         disas_uc64_insn(env, dc);
+ 
+         dc->dc_pc += 4;
+-- 
+1.7.9.5
+

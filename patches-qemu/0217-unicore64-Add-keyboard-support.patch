@@ -1,0 +1,179 @@
+From accd9bdf559065b64611bef62b2ead21b0ca66db Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 4 Jan 2013 17:37:12 +0800
+Subject: [PATCH 217/247] unicore64: Add keyboard support
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ cpu-exec.c                            |    6 ++++++
+ default-configs/unicore64-softmmu.mak |    1 +
+ hw/puv4.c                             |   20 ++++++++++++++++++++
+ hw/puv4.h                             |    4 ++++
+ hw/unicore64/cp0_intc.c               |   21 +++++++++++++++------
+ target-unicore64/cpu.h                |    1 +
+ target-unicore64/softmmu.c            |    3 +++
+ 7 files changed, 50 insertions(+), 6 deletions(-)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 763cd65..a5f4a68 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -456,6 +456,12 @@ int cpu_exec(CPUArchState *env)
+ #elif defined(TARGET_UNICORE64)
+                     if (interrupt_request & CPU_INTERRUPT_HARD
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
++                        env->exception_index = UC64_INTR_PE;
++                        do_interrupt(env);
++                        next_tb = 0;
++                    }
++                    if ((interrupt_request & CPU_INTERRUPT_TGT_INT_0)
++                        && !(env->uncached_asr & ASR_INTR_SELECT)) {
+                         env->exception_index = UC64_INTR_ITIMER;
+                         do_interrupt(env);
+                         next_tb = 0;
+diff --git a/default-configs/unicore64-softmmu.mak b/default-configs/unicore64-softmmu.mak
+index b717754..88259ea 100644
+--- a/default-configs/unicore64-softmmu.mak
++++ b/default-configs/unicore64-softmmu.mak
+@@ -1,3 +1,4 @@
+ # Default configuration for unicore64-softmmu
+ CONFIG_PUV4=y
+ CONFIG_PTIMER=y
++CONFIG_PCKBD=y
+diff --git a/hw/puv4.c b/hw/puv4.c
+index 6894a01..3bec61a 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -2,6 +2,7 @@
+ #include "elf.h"
+ #include "exec-memory.h"
+ #include "boards.h"
++#include "sysbus.h"
+ #include "loader.h"
+ #include "pc.h"
+ 
+@@ -11,6 +12,24 @@
+ #define KERNEL_LOAD_ADDR        0x03000000
+ #define KERNEL_MAX_SIZE         0x00800000 /* Just a guess */
+ 
++static void puv4_soc_init(CPUUniCore64State *env)
++{
++    qemu_irq intc_irqs[PUV4_IRQS_NR];
++    DeviceState *dev;
++    MemoryRegion *i8042 = g_new(MemoryRegion, 1);
++    int i;
++
++    dev = sysbus_create_simple("uc64_soc_intc", UC64_INTC_BASE,
++            uc64_cpu_intc[UC64_INTR_DEV]);
++    for (i = 0; i < PUV4_IRQS_NR; i++) {
++        intc_irqs[i] = qdev_get_gpio_in(dev, i);
++    }
++
++    i8042_mm_init(intc_irqs[UC64_IRQS_PS2_KBD], NULL, i8042,
++            PUV4_REGS_OFFSET, 0x10);
++    memory_region_add_subregion(get_system_memory(), UC64_PS2_BASE, i8042);
++}
++
+ static void puv4_board_init(CPUUniCore64State *env, ram_addr_t ram_size)
+ {
+     MemoryRegion *ram_memory = g_new(MemoryRegion, 1);
+@@ -57,6 +76,7 @@ static void puv4_init(ram_addr_t ram_size, const char *boot_device,
+         hw_error("Unable to find CPU definition\n");
+     }
+ 
++    puv4_soc_init(env);
+     puv4_board_init(env, ram_size);
+     puv4_load_kernel(kernel_filename);
+ }
+diff --git a/hw/puv4.h b/hw/puv4.h
+index ed04851..c1c3a8f 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -10,5 +10,9 @@
+ 
+ #define PUV4_REGS_OFFSET        (0x1000) /* 4K is reasonable */
+ #define PUV4_IRQS_NR            (32)
++#define UC64_IRQS_PS2_KBD       (22)
++#define UC64_INTC_BASE          (0xee600000)
++#define UC64_PS2_BASE           (0xef100000)
+ 
++extern qemu_irq *uc64_cpu_intc;
+ #endif /* !QEMU_HW_PUV4_H */
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index ee84dbe..532891e 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -13,8 +13,9 @@
+ #include "../irq.h"
+ 
+ #define UC64_CP0_INTRTYPE_ITM   (1 << 7)
++#define UC64_CP0_INTRTYPE_DEV   (1 << 9)
+ 
+-static qemu_irq *uc64_cpu_intc;
++qemu_irq *uc64_cpu_intc;
+ 
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
+ {
+@@ -41,20 +42,28 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+ 
+     trace_uc64_intc_cpu_handler(irq, level);
+ 
+-    if (irq != UC64_INTR_ITM) { /* ITIMER */
+-        abort();
+-    } else {
++    if (irq == UC64_INTR_ITM) { /* ITIMER */
+         irq = UC64_CP0_INTRTYPE_ITM;
++    } else if (irq == UC64_INTR_DEV) {
++        irq = UC64_CP0_INTRTYPE_DEV;
++    } else {
++        abort();
+     }
+ 
+     if (level) {
+         env->cp0.c10_intrtype |= irq;
+-        if (!(env->uncached_asr & UC64_CP0_INTRTYPE_ITM)) {
++        if (irq == UC64_CP0_INTRTYPE_ITM) {
++            cpu_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
++        } else if (irq == UC64_CP0_INTRTYPE_DEV) {
+             cpu_interrupt(env, CPU_INTERRUPT_HARD);
+         }
+     } else {
+         env->cp0.c10_intrtype &= ~irq;
+-        cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
++        if (irq == UC64_CP0_INTRTYPE_ITM) {
++            cpu_reset_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
++        } else if (irq == UC64_CP0_INTRTYPE_DEV) {
++            cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
++        }
+     }
+ }
+ 
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index fbe264d..026abcb 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -103,6 +103,7 @@ typedef struct CPUUniCore64State {
+ #define UC64_EXCP_ITRAP         0x0c
+ #define UC64_EXCP_DTRAP         0x10
+ #define UC64_INTR_ITIMER        0x20
++#define UC64_INTR_PE            0x24
+ 
+ /* Return the current ASR value.  */
+ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 2e270e6..090348b 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -115,6 +115,9 @@ void do_interrupt(CPUUniCore64State *env)
+     case UC64_INTR_ITIMER:
+         trace_uc64_do_interrupt("ITIMER", env->uncached_asr);
+         break;
++    case UC64_INTR_PE:
++        trace_uc64_do_interrupt("DEVICE", env->uncached_asr);
++        break;
+     case UC64_EXCP_PRIV:
+         trace_uc64_do_interrupt("SYSCALL", env->uncached_asr);
+         break;
+-- 
+1.7.9.5
+

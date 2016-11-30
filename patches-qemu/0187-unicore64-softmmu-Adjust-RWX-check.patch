@@ -1,0 +1,44 @@
+From dc13b5fb0d8c0ae4ff1698043e2bdbb7dc40f2fa Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Thu, 11 Oct 2012 08:49:09 +0800
+Subject: [PATCH 187/247] unicore64-softmmu: Adjust RWX check
+
+Signed-off-by: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 48105d7..46a006a 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -187,7 +187,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+     if (desc & UC64_PAGETABLE_READ) {
+         *prot |= PAGE_READ;
+     } else {
+-        if (is_user && (access_type == 0)) {
++        if (access_type == 0) {
+             code = 0x6; /* access unreadable area */
+             goto do_fault;
+         }
+@@ -196,7 +196,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+     if (desc & UC64_PAGETABLE_WRITE) {
+         *prot |= PAGE_WRITE;
+     } else {
+-        if (is_user && (access_type == 1)) {
++        if (access_type == 1) {
+             code = 0x7; /* access unwritable area */
+             goto do_fault;
+         }
+@@ -205,7 +205,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+     if (desc & UC64_PAGETABLE_EXEC) {
+         *prot |= PAGE_EXEC;
+     } else {
+-        if (is_user && (access_type == 2)) {
++        if (access_type == 2) {
+             code = 0x6; /* access unexecutable area */
+             goto do_fault;
+         }
+-- 
+1.7.9.5
+

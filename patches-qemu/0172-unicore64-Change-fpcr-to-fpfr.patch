@@ -1,0 +1,226 @@
+From 0e42a0935f3969dea4201f2d0636766b0e86f05e Mon Sep 17 00:00:00 2001
+From: Liu Wenhui <liuwenhui@mprc.pku.edu.cn>
+Date: Sun, 19 Aug 2012 00:08:46 +0800
+Subject: [PATCH 172/247] unicore64: Change fpcr to fpfr
+
+Signed-off-by: Liu Wenhui <liuwenhui@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h          |    2 +-
+ target-unicore64/helper.h       |    4 +--
+ target-unicore64/ucf64_helper.c |   52 +++++++++++++++++++--------------------
+ target-unicore64/ucf64_trans.h  |    4 +--
+ 4 files changed, 31 insertions(+), 31 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 388dcbc..3f270a3 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -72,7 +72,7 @@ typedef struct CPUUniCore64State {
+     struct {
+         float64 regs[16];
+         uint64_t fpsr; /* float point status reg */
+-        uint64_t fpcr; /* float point control reg */
++        uint64_t fpfr; /* float point flag reg */
+         float_status qemu_fp_status; /* QEMU emulator float status */
+     } ucf64;
+ 
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index e4eb9b6..4c7fc49 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -34,8 +34,8 @@ DEF_HELPER_2(adc_cc_i64, i64, i64, i64)
+ 
+ DEF_HELPER_1(ucf64_get_fpsr, i64, env)
+ DEF_HELPER_2(ucf64_set_fpsr, void, env, i64)
+-DEF_HELPER_1(ucf64_get_fpcr, i64, env)
+-DEF_HELPER_2(ucf64_set_fpcr, void, env, i64)
++DEF_HELPER_1(ucf64_get_fpfr, i64, env)
++DEF_HELPER_2(ucf64_set_fpfr, void, env, i64)
+ 
+ DEF_HELPER_4(ucf64_movts, void, f32, f32, i32, env)
+ DEF_HELPER_4(ucf64_movtd, void, f64, f64, i32, env)
+diff --git a/target-unicore64/ucf64_helper.c b/target-unicore64/ucf64_helper.c
+index c0b8a70..ee05c5f 100644
+--- a/target-unicore64/ucf64_helper.c
++++ b/target-unicore64/ucf64_helper.c
+@@ -126,14 +126,14 @@ void HELPER(ucf64_set_fpsr)(CPUUniCore64State *env, uint64_t val)
+     set_float_exception_flags(i, &env->ucf64.qemu_fp_status);
+ }
+ 
+-void HELPER(ucf64_set_fpcr)(CPUUniCore64State *env, uint64_t val)
++void HELPER(ucf64_set_fpfr)(CPUUniCore64State *env, uint64_t val)
+ {
+-    env->ucf64.fpcr = val;
++    env->ucf64.fpfr = val;
+ }
+ 
+-uint64_t HELPER(ucf64_get_fpcr)(CPUUniCore64State *env)
++uint64_t HELPER(ucf64_get_fpfr)(CPUUniCore64State *env)
+ {
+-    return env->ucf64.fpcr;
++    return env->ucf64.fpfr;
+ }
+ 
+ float32 HELPER(ucf64_adds)(float32 a, float32 b, CPUUniCore64State *env)
+@@ -199,8 +199,8 @@ float64 HELPER(ucf64_absd)(float64 a)
+ void HELPER(ucf64_movts)(float32 a, float32 b, uint32_t cond,
+                          CPUUniCore64State *env)
+ {
+-    if (((env->ucf64.fpcr & 0x2) && cond) ||
+-        (!(env->ucf64.fpcr & 0x2) && (!cond))) {
++    if (((env->ucf64.fpfr & 0x2) && cond) ||
++        (!(env->ucf64.fpfr & 0x2) && (!cond))) {
+         a = b;
+     }
+ }
+@@ -208,8 +208,8 @@ void HELPER(ucf64_movts)(float32 a, float32 b, uint32_t cond,
+ void HELPER(ucf64_movtd)(float64 a, float64 b, uint32_t cond,
+                          CPUUniCore64State *env)
+ {
+-    if (((env->ucf64.fpcr & 0x2) && cond) ||
+-        (!(env->ucf64.fpcr & 0x2) && (!cond))) {
++    if (((env->ucf64.fpfr & 0x2) && cond) ||
++        (!(env->ucf64.fpfr & 0x2) && (!cond))) {
+         a = b;
+     }
+ }
+@@ -217,8 +217,8 @@ void HELPER(ucf64_movtd)(float64 a, float64 b, uint32_t cond,
+ void HELPER(ucf64_movtw)(float32 a, float32 b, uint32_t cond,
+                          CPUUniCore64State *env)
+ {
+-    if (((env->ucf64.fpcr & 0x2) && cond) ||
+-        (!(env->ucf64.fpcr & 0x2) && (!cond))) {
++    if (((env->ucf64.fpfr & 0x2) && cond) ||
++        (!(env->ucf64.fpfr & 0x2) && (!cond))) {
+         a = b;
+     }
+ }
+@@ -228,43 +228,43 @@ void HELPER(ucf64_cmps)(float32 a, float32 b, uint32_t c,
+ {
+     int flag;
+     flag = float32_compare_quiet(a, b, &env->ucf64.qemu_fp_status);
+-    env->ucf64.fpcr &= 0xd;
++    env->ucf64.fpfr &= 0xd;
+     switch (c & 0x7) {
+     case 0: /* F */
+         break;
+     case 1: /* UN */
+         if (flag == 2) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 2: /* EQ */
+         if (flag == 0) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 3: /* UEQ */
+         if ((flag == 0) || (flag == 2)) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 4: /* OLT */
+         if (flag == -1) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 5: /* ULT */
+         if ((flag == -1) || (flag == 2)) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 6: /* OLE */
+         if ((flag == -1) || (flag == 0)) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 7: /* ULE */
+         if (flag != 1) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     }
+@@ -275,43 +275,43 @@ void HELPER(ucf64_cmpd)(float64 a, float64 b, uint32_t c,
+ {
+     int flag;
+     flag = float64_compare_quiet(a, b, &env->ucf64.qemu_fp_status);
+-    env->ucf64.fpcr &= 0xd;
++    env->ucf64.fpfr &= 0xd;
+     switch (c & 0x7) {
+     case 0: /* F */
+         break;
+     case 1: /* UN */
+         if (flag == 2) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 2: /* EQ */
+         if (flag == 0) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 3: /* UEQ */
+         if ((flag == 0) || (flag == 2)) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 4: /* OLT */
+         if (flag == -1) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 5: /* ULT */
+         if ((flag == -1) || (flag == 2)) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 6: /* OLE */
+         if ((flag == -1) || (flag == 0)) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     case 7: /* ULE */
+         if (flag != 1) {
+-            env->ucf64.fpcr |= 0x2;
++            env->ucf64.fpfr |= 0x2;
+         }
+         break;
+     }
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 9bc8434..acc6fef 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -46,7 +46,7 @@ static void do_ucf64_trans(CPUUniCore64State *env, DisasContext *s,
+                 gen_helper_ucf64_get_fpsr(tmp, cpu_env);
+                 tcg_gen_mov_i64(cpu_R[UCOP_REG_D], tmp);
+             } else { /* FLAG = FPU.FLAG*/
+-                gen_helper_ucf64_get_fpcr(tmp, cpu_env);
++                gen_helper_ucf64_get_fpfr(tmp, cpu_env);
+                 gen_helper_afr_write(tmp);
+             }
+         } else { /* CTF */
+@@ -55,7 +55,7 @@ static void do_ucf64_trans(CPUUniCore64State *env, DisasContext *s,
+                 gen_helper_ucf64_set_fpsr(cpu_env, tmp);
+             } else { /* FPU.FLAG = FLAG */
+                 gen_helper_afr_read(tmp);
+-                gen_helper_ucf64_set_fpcr(cpu_env, tmp);
++                gen_helper_ucf64_set_fpfr(cpu_env, tmp);
+             }
+         }
+         return;
+-- 
+1.7.9.5
+

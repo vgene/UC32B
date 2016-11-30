@@ -1,0 +1,32 @@
+From 0ed70a34786254c422b657df1410d56d7240597d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 16 Aug 2012 15:27:31 +0800
+Subject: [PATCH 139/247] unicore64-softmmu: Add cp0-c9 setting handler
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index f7514b4..e0a38c1 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -375,6 +375,14 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+             goto unrecognized;
+         }
+         break;
++    case 9:
++        switch (cop) {
++        case 0:
++            env->cp0.c9_excpbase = val;
++        default:
++            goto unrecognized;
++        }
++        break;
+     case 12:
+         if (cop < 8) {
+             env->cp0.c12_sysu[cop] = val;
+-- 
+1.7.9.5
+

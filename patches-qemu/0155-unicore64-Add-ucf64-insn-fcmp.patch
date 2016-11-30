@@ -1,0 +1,161 @@
+From 24b38e34255be4e82ffef481d25f55bb804d237b Mon Sep 17 00:00:00 2001
+From: Tianbao Song <songtianbao@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 02:30:48 +0800
+Subject: [PATCH 155/247] unicore64: Add ucf64 insn fcmp
+
+Signed-off-by: Song Tianbao <songtianbao@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.h       |    2 +
+ target-unicore64/ucf64_helper.c |   96 +++++++++++++++++++++++++++++++++++++++
+ target-unicore64/ucf64_trans.h  |   17 ++++++-
+ 3 files changed, 113 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index dbd6b6b..afd8e5c 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -57,4 +57,6 @@ DEF_HELPER_2(ucf64_si2df, f64, f32, env)
+ DEF_HELPER_2(ucf64_sf2si, f32, f32, env)
+ DEF_HELPER_2(ucf64_df2si, f32, f64, env)
+ 
++DEF_HELPER_4(ucf64_cmps, void, f32, f32, i32, env)
++DEF_HELPER_4(ucf64_cmpd, void, f64, f64, i32, env)
+ #include "def-helper.h"
+diff --git a/target-unicore64/ucf64_helper.c b/target-unicore64/ucf64_helper.c
+index 467bc19..69df0b1 100644
+--- a/target-unicore64/ucf64_helper.c
++++ b/target-unicore64/ucf64_helper.c
+@@ -186,6 +186,102 @@ float64 HELPER(ucf64_absd)(float64 a)
+     return float64_abs(a);
+ }
+ 
++void HELPER(ucf64_cmps)(float32 a, float32 b, uint32_t c,
++        CPUUniCore64State *env)
++{
++    int flag;
++    flag = float32_compare_quiet(a, b, &env->ucf64.qemu_fp_status);
++    env->CF = 0;
++    switch (c & 0x7) {
++    case 0: /* F */
++        break;
++    case 1: /* UN */
++        if (flag == 2) {
++            env->CF = 1;
++        }
++        break;
++    case 2: /* EQ */
++        if (flag == 0) {
++            env->CF = 1;
++        }
++        break;
++    case 3: /* UEQ */
++        if ((flag == 0) || (flag == 2)) {
++            env->CF = 1;
++        }
++        break;
++    case 4: /* OLT */
++        if (flag == -1) {
++            env->CF = 1;
++        }
++        break;
++    case 5: /* ULT */
++        if ((flag == -1) || (flag == 2)) {
++            env->CF = 1;
++        }
++        break;
++    case 6: /* OLE */
++        if ((flag == -1) || (flag == 0)) {
++            env->CF = 1;
++        }
++        break;
++    case 7: /* ULE */
++        if (flag != 1) {
++            env->CF = 1;
++        }
++        break;
++    }
++    env->ucf64.fpsr = (env->CF << 29) | (env->ucf64.fpsr & 0x0fffffff);
++}
++
++void HELPER(ucf64_cmpd)(float64 a, float64 b, uint32_t c,
++        CPUUniCore64State *env)
++{
++    int flag;
++    flag = float64_compare_quiet(a, b, &env->ucf64.qemu_fp_status);
++    env->CF = 0;
++    switch (c & 0x7) {
++    case 0: /* F */
++        break;
++    case 1: /* UN */
++        if (flag == 2) {
++            env->CF = 1;
++        }
++        break;
++    case 2: /* EQ */
++        if (flag == 0) {
++            env->CF = 1;
++        }
++        break;
++    case 3: /* UEQ */
++        if ((flag == 0) || (flag == 2)) {
++            env->CF = 1;
++        }
++        break;
++    case 4: /* OLT */
++        if (flag == -1) {
++            env->CF = 1;
++        }
++        break;
++    case 5: /* ULT */
++        if ((flag == -1) || (flag == 2)) {
++            env->CF = 1;
++        }
++        break;
++    case 6: /* OLE */
++        if ((flag == -1) || (flag == 0)) {
++            env->CF = 1;
++        }
++        break;
++    case 7: /* ULE */
++        if (flag != 1) {
++            env->CF = 1;
++        }
++        break;
++    }
++    env->ucf64.fpsr = (env->CF << 29) | (env->ucf64.fpsr & 0x0fffffff);
++}
++
+ /* Helper routines to perform bitwise copies between float and int.  */
+ static inline float32 ucf64_itos(uint32_t i)
+ {
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 7781ce6..936db88 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -123,8 +123,21 @@ static void do_ucf64_fcvt(CPUUniCore64State *env, DisasContext *s,
+ static void do_ucf64_fcmp(CPUUniCore64State *env, DisasContext *s,
+                           uint32_t insn)
+ {
+-    /* TODO */
+-    ILLEGAL_INSN(true);
++    TCGv_i32 cond;
++
++    ILLEGAL_INSN(UCOP_SET(26));
++
++    tcg_gen_movi_i32(cond, ((insn >> 2) & 0xf));
++
++    if (UCOP_SET(25)) {
++        tcg_gen_ld_i64(cpu_F0d, cpu_env, ucf64_reg_offset(UCOP_REG_S1));
++        tcg_gen_ld_i64(cpu_F1d, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
++        gen_helper_ucf64_cmpd(cpu_F0d, cpu_F1d, cond, cpu_env);
++    } else {
++        tcg_gen_ld_i32(cpu_F0s, cpu_env, ucf64_reg_offset(UCOP_REG_S1));
++        tcg_gen_ld_i32(cpu_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
++        gen_helper_ucf64_cmps(cpu_F0s, cpu_F1s, cond, cpu_env);
++    }
+ }
+ 
+ #define gen_helper_ucf64_movs(x, y)      do { } while (0)
+-- 
+1.7.9.5
+

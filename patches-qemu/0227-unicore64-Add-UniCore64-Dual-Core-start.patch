@@ -1,0 +1,57 @@
+From d2e6d60d7ed48b2fdf857a631b64ef46397ad30f Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 23 Jul 2013 10:02:47 +0800
+Subject: [PATCH 227/247] unicore64: Add UniCore64 Dual Core start
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/puv4.c |   19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/hw/puv4.c b/hw/puv4.c
+index a0d4310..3a41ba4 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -5,6 +5,7 @@
+ #include "sysbus.h"
+ #include "loader.h"
+ #include "pc.h"
++#include "sysemu.h"
+ 
+ #undef DEBUG_PUV4
+ #include "puv4.h"
+@@ -71,13 +72,16 @@ static void puv4_init(ram_addr_t ram_size, const char *boot_device,
+         cpu_model = "UniCore-III";
+     }
+ 
+-    env = cpu_init(cpu_model);
+-    if (!env) {
+-        hw_error("Unable to find CPU definition\n");
+-    }
+-
+-    puv4_soc_init(env);
+-    puv4_board_init(env, ram_size);
++    int i;
++    for (i = 0; i < smp_cpus; i++) {
++        env = cpu_init(cpu_model);
++        if (!env) {
++            hw_error("Unable to find CPU definition\n");
++        }
++     }
++
++    puv4_soc_init(first_cpu);
++    puv4_board_init(first_cpu, ram_size);
+     puv4_load_kernel(kernel_filename);
+ }
+ 
+@@ -87,6 +91,7 @@ static QEMUMachine puv4_machine = {
+     .init = puv4_init,
+     .is_default = 1,
+     .use_scsi = 0,
++    .max_cpus = 2,
+ };
+ 
+ static void puv4_machine_init(void)
+-- 
+1.7.9.5
+

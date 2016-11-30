@@ -1,0 +1,26 @@
+From 002d11a9e0fdb57896e0607c2640333724bf3d30 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 9 Aug 2012 19:44:04 +0800
+Subject: [PATCH 060/247] unicore64: Add line-return to helper_cp1_putx
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 6c595b7..c57c6b4 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -45,7 +45,7 @@ void helper_cp1_putc(target_ulong x)
+ 
+ void helper_cp1_putx(target_ulong x)
+ {
+-    printf("--%16" PRIx64 "--", x); /* Output to stdout */
++    printf("\n--%16" PRIx64 "--", x); /* Output to stdout */
+     fflush(NULL);
+ }
+ 
+-- 
+1.7.9.5
+

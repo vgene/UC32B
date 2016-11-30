@@ -1,0 +1,41 @@
+From 3eeb4abdeb835c1b59abb482473b66801ce4dcca Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 25 Dec 2012 17:17:15 +0800
+Subject: [PATCH 197/247] unicore64: Change trace method for get_phys_addr
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    4 ++--
+ trace-events               |    1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index c9a9fa5..639ddaf 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -231,8 +231,8 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+ 
+ do_fault:
+     if (code) {
+-        DPRINTF("va %" PRIx64 " desc %" PRIx64 " code %d is_user %d\n",
+-                    address, desc, code, is_user);
++        trace_uc64_get_phys_addr(address, desc, code, is_user);
++
+         env->cp0.c4_epc = address;
+         if (access_type == 2) {
+             env->cp0.c3_ifaultstatus = code;
+diff --git a/trace-events b/trace-events
+index 9d0d92e..b0b0631 100644
+--- a/trace-events
++++ b/trace-events
+@@ -890,6 +890,7 @@ win_helper_retry(uint32_t tl) "tl=%d"
+ # target-unicore64/softmmu.c
+ uc64_cpu_handle_mmu_fault(uint64_t va, uint64_t pa, uint64_t pc) ": va %16." PRIx64 " pa %16." PRIx64 " pc %16." PRIx64
+ uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRIx64 " retaddr %16." PRIx64
++uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va %16." PRIx64 " desc %16." PRIx64 " code %d is_user %d"
+ 
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+-- 
+1.7.9.5
+

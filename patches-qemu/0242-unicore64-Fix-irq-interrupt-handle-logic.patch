@@ -1,0 +1,184 @@
+From 75e47a7262174f4039596a50d99b6150642b3330 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Fri, 21 Feb 2014 09:29:30 +0800
+Subject: [PATCH 242/247] unicore64: Fix irq interrupt handle logic
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ cpu-exec.c                |   12 ++++----
+ hw/unicore64/cp0_intc.c   |   68 ++++++++++++++++++++-------------------------
+ target-unicore64/helper.c |    4 +--
+ 3 files changed, 38 insertions(+), 46 deletions(-)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 924f913..0391215 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -454,9 +454,9 @@ int cpu_exec(CPUArchState *env)
+                         next_tb = 0;
+                     }
+ #elif defined(TARGET_UNICORE64)
+-                    if ((interrupt_request & CPU_INTERRUPT_OTM)
++                    if (interrupt_request & CPU_INTERRUPT_SMP
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
+-                        env->exception_index = UC64_INTR_OTIMER;
++                        env->exception_index = UC64_INTR_IPI;
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
+@@ -466,15 +466,15 @@ int cpu_exec(CPUArchState *env)
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
+-                    if ((interrupt_request & CPU_INTERRUPT_ITM)
++                    if ((interrupt_request & CPU_INTERRUPT_OTM)
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
+-                        env->exception_index = UC64_INTR_ITIMER;
++                        env->exception_index = UC64_INTR_OTIMER;
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
+-                    if (interrupt_request & CPU_INTERRUPT_SMP
++                    if ((interrupt_request & CPU_INTERRUPT_ITM)
+                         && !(env->uncached_asr & ASR_INTR_SELECT)) {
+-                        env->exception_index = UC64_INTR_IPI;
++                        env->exception_index = UC64_INTR_ITIMER;
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index 9ea07fc..2c36f32 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -13,35 +13,26 @@
+ #include "../irq.h"
+ 
+ #define UC64_CP0_INTRTYPE_ITM   (1 << 7)
+-#define UC64_CP0_INTRTYPE_DEV   (1 << 9)
+-#define UC64_CP0_INTRTYPE_IPI   (0x600) /* Inner Processor Interrupt */
+-#define UC64_CP0_HIGH_LEVEL     UC64_CP0_TYPE_OTM
+-#define UC64_CP0_TYPE_OTM       (1 << 3)
++#define UC64_CP0_INTRTYPE_IPI   (0x600) /* Inter Processor Interrupt */
+ 
+ qemu_irq *uc64_cpu0_intc;
+ qemu_irq *uc64_cpu1_intc;
+ 
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int val)
+ {
+-    if (env->cp0.c10_intrtype & ~val) {
+-        if (~val & UC64_CP0_INTRTYPE_ITM) {
+-            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
+-            if (env->cpu_index == 0) {
+-                qemu_irq_lower(uc64_cpu0_intc[2]);
+-            } else {
+-                qemu_irq_lower(uc64_cpu1_intc[2]);
+-            }
++    if ((~val & UC64_CP0_INTRTYPE_ITM) &&
++            (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM)) {
++        if (env->cpu_index == 0) {
++            qemu_irq_lower(uc64_cpu0_intc[2]);
++        } else {
++            qemu_irq_lower(uc64_cpu1_intc[2]);
+         }
+-        if (~val & UC64_CP0_INTRTYPE_IPI) {
+-            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_IPI;
+-            if (env->cpu_index == 0) {
+-                qemu_irq_lower(uc64_cpu0_intc[0]);
+-            } else {
+-                qemu_irq_lower(uc64_cpu1_intc[0]);
+-            }
+-        }
+-        if (~val & UC64_INTR_OTM) {
+-            qemu_irq_lower(uc64_cpu0_intc[UC64_INTR_OTM]);
++    } else if ((~val & UC64_CP0_INTRTYPE_IPI) &&
++            (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_IPI)) {
++        if (env->cpu_index == 0) {
++            qemu_irq_lower(uc64_cpu0_intc[0]);
++        } else {
++            qemu_irq_lower(uc64_cpu1_intc[0]);
+         }
+     }
+ }
+@@ -61,43 +52,44 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+     CPUUniCore64State *env = (CPUUniCore64State *)opaque;
+ 
+     trace_uc64_intc_cpu_handler(irq, level);
++    int irq_value = 0;
+ 
+     if (irq == UC64_INTR_ITM) { /* ITIMER */
+-        irq = UC64_CP0_INTRTYPE_ITM;
++        irq_value = UC64_CP0_INTRTYPE_ITM;
+     } else if (irq == UC64_INTR_DEV) {
+-        irq = UC64_CP0_INTRTYPE_DEV;
++        irq_value = 0;
+     } else if (irq == UC64_INTR_SMP) {
+-        irq = UC64_CP0_INTRTYPE_IPI;
++        irq_value = UC64_CP0_INTRTYPE_IPI;
+     } else if (irq == UC64_INTR_OTM) {
+-        irq = UC64_CP0_TYPE_OTM;
++        irq_value = 0;
+     } else {
+         abort();
+     }
+ 
+     if (level) {
+-        if (!(irq & UC64_CP0_HIGH_LEVEL)) {
+-            env->cp0.c10_intrtype |= irq;
++        if (irq_value) {
++            env->cp0.c10_intrtype |= irq_value;
+         }
+-        if (irq == UC64_CP0_INTRTYPE_ITM) {
++        if (irq == UC64_INTR_ITM) {
+             cpu_interrupt(env, CPU_INTERRUPT_ITM);
+-        } else if (irq == UC64_CP0_INTRTYPE_DEV) {
++        } else if (irq == UC64_INTR_DEV) {
+             cpu_interrupt(env, CPU_INTERRUPT_HARD);
+-        } else if (irq == UC64_CP0_INTRTYPE_IPI) {
++        } else if (irq == UC64_INTR_SMP) {
+             cpu_interrupt(env, CPU_INTERRUPT_SMP);
+-        } else if (irq == UC64_CP0_TYPE_OTM) {
++        } else if (irq == UC64_INTR_OTM) {
+             cpu_interrupt(env, CPU_INTERRUPT_OTM);
+         }
+     } else {
+-        if (!(irq & UC64_CP0_HIGH_LEVEL)) {
+-            env->cp0.c10_intrtype &= ~irq;
++        if (irq_value) {
++            env->cp0.c10_intrtype &= ~irq_value;
+         }
+-        if (irq == UC64_CP0_INTRTYPE_ITM) {
++        if (irq == UC64_INTR_ITM) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_ITM);
+-        } else if (irq == UC64_CP0_INTRTYPE_DEV) {
++        } else if (irq == UC64_INTR_DEV) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+-        } else if (irq == UC64_CP0_INTRTYPE_IPI) {
++        } else if (irq == UC64_INTR_SMP) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_SMP);
+-        } else if (irq == UC64_CP0_TYPE_OTM) {
++        } else if (irq == UC64_INTR_OTM) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_OTM);
+         }
+     }
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index c509c85..4f365a2 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -455,12 +455,12 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+             break;
+         case 3:
+             ipi_env = qemu_get_cpu(0);
+-            ipi_env->cp0.c10_intrtype |= 1<<(env->cpu_index + 9);
++            //ipi_env->cp0.c10_intrtype |= 1<<(env->cpu_index + 9);
+             uc64_cp0_intc_irq_raise(ipi_env, UC64_INTR_SMP);
+             break;
+         case 4:
+             ipi_env = qemu_get_cpu(1);
+-            ipi_env->cp0.c10_intrtype |= 1<<(env->cpu_index + 9);
++            //ipi_env->cp0.c10_intrtype |= 1<<(env->cpu_index + 9);
+             uc64_cp0_intc_irq_raise(ipi_env, UC64_INTR_SMP);
+             break;
+         case 10: /* Match Register */
+-- 
+1.7.9.5
+

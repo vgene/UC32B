@@ -1,0 +1,51 @@
+From 5250c04388f7a9787e87af9e37131e5bf122d4ef Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 25 Dec 2012 16:33:07 +0800
+Subject: [PATCH 195/247] unicore64: Change trace method for
+ uc64_cpu_handle_mmu_fault
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    4 ++--
+ trace-events               |    3 +++
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 47e88ea..9196543 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -11,6 +11,7 @@
+ #include "cpu.h"
+ #include "dyngen-exec.h"
+ #include "helper.h"
++#include "trace.h"
+ 
+ #ifdef CONFIG_USER_ONLY
+ #error This file only exist under softmmu circumstance
+@@ -272,8 +273,7 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+         /* Following printf is only used for debug */
+         if ((address & 0xfffffff000000000ULL) != 0xfffffff000000000ULL) {
+         if ((address & 0xffffffff00000000ULL) != 0xf00000000ULL) {
+-            DPRINTF("va %" PRIx64 " pa %" PRIx64 " pc %" PRIx64 "\n",
+-                    address, phys_addr, env->regs[31]);
++            trace_uc64_cpu_handle_mmu_fault(address, phys_addr, env->regs[31]);
+         }
+         }
+     }
+diff --git a/trace-events b/trace-events
+index 6b12f83..40a1627 100644
+--- a/trace-events
++++ b/trace-events
+@@ -887,6 +887,9 @@ win_helper_wrpil(uint32_t psrpil, uint32_t new_pil) "old=%x new=%x"
+ win_helper_done(uint32_t tl) "tl=%d"
+ win_helper_retry(uint32_t tl) "tl=%d"
+ 
++# target-unicore64/softmmu.c
++uc64_cpu_handle_mmu_fault(uint64_t va, uint64_t pa, uint64_t pc) ": va %16." PRIx64 " pa %16." PRIx64 " pc %16." PRIx64
++
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+ dma_aio_cancel(void *dbs) "dbs=%p"
+-- 
+1.7.9.5
+

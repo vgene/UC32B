@@ -1,0 +1,46 @@
+From 92d9f10ed0cb0465e8764003c2239392ac137d09 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 11 Aug 2012 10:26:35 +0800
+Subject: [PATCH 083/247] unicore64: Add pc handling in store insn
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 09a434e..ff810a6 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -703,7 +703,6 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     TCGv_i64 t_addr, t_op2_64, t_rd_64;
+ 
+     ILLEGAL_INSN(!UCOP_LDST_BHD); /* prefetch or sync? */
+-    ILLEGAL_INSN(UCOP_REG_D == 31);
+ 
+     t_addr = tcg_temp_new_i64();
+     t_op2_64 = tcg_temp_new_i64();
+@@ -762,7 +761,11 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             break;
+         }
+     } else { /* store */
+-        tcg_gen_mov_i64(t_rd_64, cpu_R[UCOP_REG_D]);
++        if (UCOP_REG_D == 31) {
++            tcg_gen_movi_i64(t_rd_64, s->dc_pc);
++        } else {
++            tcg_gen_mov_i64(t_rd_64, cpu_R[UCOP_REG_D]);
++        }
+ 
+         switch (UCOP_LDST_BHD) {
+         case 1:
+@@ -800,6 +803,7 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     }
+ 
+     if (UCOP_SET(25)) { /* Complete the load, in case rd==rs1 */
++        ILLEGAL_INSN(UCOP_REG_D == 31);
+         tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_rd_64);
+     }
+ 
+-- 
+1.7.9.5
+

@@ -1,0 +1,29 @@
+From bbdd21b0487a4999f2b0340dc7ea0f07577455a3 Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 14:49:05 +0800
+Subject: [PATCH 096/247] unicore64-softmmu: define exception offset
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index f4dcc3a..af55318 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -69,7 +69,10 @@ typedef struct CPUUniCore64State {
+ #define AFR_Z                   (1 << 2)
+ #define AFR_N                   (1 << 3)
+ 
+-#define UC64_EXCP_PRIV          ASR_MODE_PRIV
++#define UC64_EXCP_PRIV          0x08
++#define UC64_EXCP_ITRAP         0x0c
++#define UC64_EXCP_DTRAP         0x10
++#define UC64_EXCP_INTR          0x20
+ 
+ /* Return the current ASR value.  */
+ target_ulong cpu_asr_read(CPUUniCore64State *env1);
+-- 
+1.7.9.5
+

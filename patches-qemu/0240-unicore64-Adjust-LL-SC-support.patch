@@ -1,0 +1,119 @@
+From 6e4d00625f9e273cb9159d2c3e5f35214119492d Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 18:42:41 +0800
+Subject: [PATCH 240/247] unicore64: Adjust LL SC support
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h       |    2 ++
+ target-unicore64/translate.c |   18 +++++++++++++++---
+ 2 files changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index c769480..05127a3 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -54,6 +54,8 @@ typedef struct CPUUniCore64State {
+     uint64_t llsc_exclusive_addr;
+     /* lock for LL-SC */
+     uint64_t llsc_exclusive_lock;
++    /* value for LL-SC */
++    uint64_t llsc_exclusive_val;
+ 
+     /* System control coprocessor (cp0) */
+     struct {
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index d5b68dd..c00ca46 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -30,6 +30,7 @@ static TCGv_i64 cpu_R30[3];
+ 
+ static TCGv_i64 LLSC_ex_addr; /* exclusive address for LLSC */
+ static TCGv_i64 LLSC_ex_lock; /* exclusive lock for LLSC */
++static TCGv_i64 LLSC_ex_val;  /* exclusive value for LLSC */
+ 
+ #include "gen-icount.h"
+ 
+@@ -65,6 +66,8 @@ void uc64_translate_init(void)
+            offsetof(CPUUniCore64State, llsc_exclusive_addr), "llsc_ex_addr");
+     LLSC_ex_lock = tcg_global_mem_new_i64(TCG_AREG0,
+            offsetof(CPUUniCore64State, llsc_exclusive_lock), "llsc_ex_lock");
++    LLSC_ex_val = tcg_global_mem_new_i64(TCG_AREG0,
++           offsetof(CPUUniCore64State, llsc_exclusive_val), "llsc_ex_val");
+ 
+ #define GEN_HELPER 2
+ #include "helper.h"
+@@ -1177,7 +1180,7 @@ static void do_swap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
+-    TCGv_i64 t_addr, t_baseaddr, t_op2_64, t_rd_64;
++    TCGv_i64 t_addr, t_baseaddr, t_op2_64, t_rd_64, tmp;
+     int fail_label;
+     int done_label;
+ 
+@@ -1190,6 +1193,7 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     t_baseaddr = tcg_temp_new_i64();
+     t_op2_64 = tcg_temp_new_i64();
+     t_rd_64 = tcg_temp_new_i64();
++    tmp = tcg_temp_new_i64();
+ 
+     /* Prepare base address */
+     if (UCOP_REG_S1 == 31) {
+@@ -1235,6 +1239,7 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+         tcg_gen_mov_i64(LLSC_ex_addr, t_addr);
+         tcg_gen_movi_i64(LLSC_ex_lock, true);
++        tcg_gen_mov_i64(LLSC_ex_val, cpu_R[UCOP_REG_D]);
+     } else { /* SC */
+         fail_label = gen_new_label();
+         done_label = gen_new_label();
+@@ -1242,6 +1247,13 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         tcg_gen_brcond_i64(TCG_COND_NE, LLSC_ex_addr, t_addr, fail_label);
+         tcg_gen_brcondi_i64(TCG_COND_NE, LLSC_ex_lock, true, fail_label);
+         /* addr are equal && lock is true */
++        if (UCOP_SET(22)) { /* double word */
++            tcg_gen_qemu_ld64(tmp, LLSC_ex_addr, IS_USER(s));
++        } else { /* word */
++            tcg_gen_qemu_ld32u(tmp, LLSC_ex_addr, IS_USER(s));
++        }
++        tcg_gen_brcond_i64(TCG_COND_NE, LLSC_ex_val, tmp, fail_label);
++        /* the value is the same with LL */
+ 
+         tcg_gen_mov_i64(t_rd_64, cpu_R[UCOP_REG_D]);
+         if (UCOP_SET(22)) { /* double word */
+@@ -1259,6 +1271,7 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         gen_set_label(fail_label);
+         /* addr are diff || lock is false */
+         tcg_gen_movi_i64(cpu_R[UCOP_REG_D], false);
++        tcg_gen_movi_i64(LLSC_ex_lock, false);
+ 
+         gen_set_label(done_label);
+     }
+@@ -1267,6 +1280,7 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     tcg_temp_free_i64(t_baseaddr);
+     tcg_temp_free_i64(t_op2_64);
+     tcg_temp_free_i64(t_rd_64);
++    tcg_temp_free_i64(tmp);
+ }
+ 
+ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+@@ -1462,7 +1476,6 @@ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+         break;
+     case 0x3:
+         do_ldst(env, s, insn);
+-        tcg_gen_movi_i64(LLSC_ex_lock, false);
+         break;
+     case 0x4:
+         switch ((insn >> 23) & 0x3) {
+@@ -1474,7 +1487,6 @@ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+             break;
+         case 0x3:
+             do_swap(env, s, insn);
+-            tcg_gen_movi_i64(LLSC_ex_lock, false);
+             break;
+         default:
+             ILLEGAL_INSN(true);
+-- 
+1.7.9.5
+

@@ -1,0 +1,26 @@
+From e232552ae6f9a8e09ec4929d99c161bacdcffe90 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 01:01:47 +0800
+Subject: [PATCH 147/247] unicore64: Add print information for get_phys_addr
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 35cf52d..b228ce9 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -203,6 +203,8 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+ 
+ do_fault:
+     if (code) {
++        DPRINTF("%s: va %" PRIx64 " desc %" PRIx64 " code %d is_user %d\n",
++                    __func__, address, desc, code, is_user);
+         env->cp0.c4_epc = address;
+         if (access_type == 2) {
+             env->cp0.c3_ifaultstatus = code;
+-- 
+1.7.9.5
+

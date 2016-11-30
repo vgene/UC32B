@@ -1,0 +1,48 @@
+From 06ed93552ba6d257e3db2a7e8e0279c243397026 Mon Sep 17 00:00:00 2001
+From: Meng Xiangzeng <mengxiangzeng@mprc.pku.edu.cn>
+Date: Fri, 10 Aug 2012 05:25:05 +0800
+Subject: [PATCH 064/247] unicore64: add return instruction
+
+Signed-off-by: Meng Xiangzeng <mengxiangzeng@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index a1482bb..def65ae 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -635,12 +635,24 @@ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     }
+ 
+     if (UCOP_OPCODE == 0xf) {
+-        ILLEGAL_INSN(insn & 0x00ff07ff); /* other bits must be 0 */
+-        ILLEGAL_INSN(UCOP_REG_S1 == 31);
+-
+-        /* JUMP and CALL-R instruction */
+-        tcg_gen_mov_i64(cpu_R[31], cpu_R[UCOP_REG_S1]);
+-        s->dc_jmp = DISAS_JUMP;
++        if (!(insn & 0x00ff07ff)) { /* JUMP and CALL-R */
++            ILLEGAL_INSN(UCOP_REG_S1 == 31);
++
++            tcg_gen_mov_i64(cpu_R[31], cpu_R[UCOP_REG_S1]);
++            s->dc_jmp = DISAS_JUMP;
++        } else { /* RETURN and ERET */
++            ILLEGAL_INSN(insn & 0x003fffff); /* other bits must be 0 */
++
++            if ((insn & 0x00c00000) == 0x00800000) {
++                /* RETURN instruction: r31 <- r30 */
++                tcg_gen_mov_i64(cpu_R[31], cpu_R[30]);
++                s->dc_jmp = DISAS_JUMP;
++            }
++            if ((insn & 0x00c00000) == 0x00c00000) {
++                /* ERET instruction: r31 <- r30, ASR <- BSR */
++                ILLEGAL_INSN(true);
++            }
++        }
+     } else { /* This branch means IMM24 */
+         if (UCOP_OPCODE != 0xe) { /* conditional branch */
+             s->dc_condlabel = gen_new_label(); /* label for next instruction */
+-- 
+1.7.9.5
+

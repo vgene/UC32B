@@ -1,0 +1,27 @@
+From 325089d872d5356d465e561b1a902210cca593b7 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 8 Aug 2012 12:29:14 +0800
+Subject: [PATCH 039/247] unicore64: Replace tcg_temp_free with
+ tcg_temp_free_i64
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 1fdd7ca..6518a9c 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -133,7 +133,7 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         ILLEGAL_INSN(UCOP_REG_S1);
+ 
+         tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_op2_64);
+-        tcg_temp_free(t_op2_64);
++        tcg_temp_free_i64(t_op2_64);
+         break;
+     default:
+         ILLEGAL_INSN(true);
+-- 
+1.7.9.5
+

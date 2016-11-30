@@ -1,0 +1,40 @@
+From 646ee51963169667737989383201ed9e950ab75f Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Wed, 19 Dec 2012 17:41:01 +0800
+Subject: [PATCH 193/247] Add sync support Signed-off-by: Li Binbin
+ <libinbin@mprc.pku.edu.cn>
+
+---
+ target-unicore64/translate.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 66587e9..9645574 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -92,6 +92,7 @@ void uc64_translate_init(void)
+ #define UCOP_CPNUM              (((insn) >> 21) & 0xf)
+ #define UCOP_LDST_BHD           (((insn) >> 22) & 0x7)
+ #define UCOP_CMOV_COND          (((insn) >> 12) & 0xf)
++#define UCOP_SYNC               (((insn) >> 27) & 0x1)
+ 
+ #define UCOP_SET(i)             ((insn) & (1 << (i)))
+ 
+@@ -915,7 +916,13 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
+     TCGv_i64 t_addr, t_op2_64, t_rd_64;
+ 
+-    ILLEGAL_INSN(!UCOP_LDST_BHD); /* prefetch or sync? */
++    if (!UCOP_LDST_BHD) {
++        if (UCOP_SYNC) {
++            /* sync */
++            return;
++        }
++        ILLEGAL_INSN(1); /* prefetch */
++    }
+ 
+     t_addr = tcg_temp_new_i64();
+     t_op2_64 = tcg_temp_new_i64();
+-- 
+1.7.9.5
+

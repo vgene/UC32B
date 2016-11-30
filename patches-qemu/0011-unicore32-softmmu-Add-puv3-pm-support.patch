@@ -1,0 +1,199 @@
+From 893f32d23b89efe9333e641ad65e92abd84c6bc0 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 25 May 2012 17:46:09 +0800
+Subject: [PATCH 011/247] unicore32-softmmu: Add puv3 pm support
+
+This patch adds puv3 pm (power management) support,
+include pm device simulation for kernel booting.
+Thank Blue Swirl for pointing out the missing "break".
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/Makefile.objs |    1 +
+ hw/puv3.c        |    1 +
+ hw/puv3_pm.c     |  149 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 151 insertions(+)
+ create mode 100644 hw/puv3_pm.c
+
+diff --git a/hw/Makefile.objs b/hw/Makefile.objs
+index c6cc97b..e2a39d6 100644
+--- a/hw/Makefile.objs
++++ b/hw/Makefile.objs
+@@ -70,6 +70,7 @@ hw-obj-$(CONFIG_XILINX_AXI) += xilinx_axienet.o
+ hw-obj-$(CONFIG_PUV3) += puv3_intc.o
+ hw-obj-$(CONFIG_PUV3) += puv3_ost.o
+ hw-obj-$(CONFIG_PUV3) += puv3_gpio.o
++hw-obj-$(CONFIG_PUV3) += puv3_pm.o
+ 
+ # PCI watchdog devices
+ hw-obj-$(CONFIG_PCI) += wdt_i6300esb.o
+diff --git a/hw/puv3.c b/hw/puv3.c
+index 0354cf6..3a14b27 100644
+--- a/hw/puv3.c
++++ b/hw/puv3.c
+@@ -48,6 +48,7 @@ static void puv3_soc_init(CPUUniCore32State *env)
+     }
+ 
+     /* Initialize minimal necessary devices for kernel booting */
++    sysbus_create_simple("puv3_pm", PUV3_PM_BASE, NULL);
+     sysbus_create_simple("puv3_ost", PUV3_OST_BASE, irqs[PUV3_IRQS_OST0]);
+     sysbus_create_varargs("puv3_gpio", PUV3_GPIO_BASE,
+             irqs[PUV3_IRQS_GPIOLOW0], irqs[PUV3_IRQS_GPIOLOW1],
+diff --git a/hw/puv3_pm.c b/hw/puv3_pm.c
+new file mode 100644
+index 0000000..b66fdbe
+--- /dev/null
++++ b/hw/puv3_pm.c
+@@ -0,0 +1,149 @@
++/*
++ * Power Management device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2010-2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "hw.h"
++#include "sysbus.h"
++
++#undef DEBUG_PUV3
++#include "puv3.h"
++
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++
++    uint32_t reg_PMCR;
++    uint32_t reg_PCGR;
++    uint32_t reg_PLL_SYS_CFG;
++    uint32_t reg_PLL_DDR_CFG;
++    uint32_t reg_PLL_VGA_CFG;
++    uint32_t reg_DIVCFG;
++} PUV3PMState;
++
++static uint64_t puv3_pm_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    PUV3PMState *s = opaque;
++    uint32_t ret;
++
++    switch (offset) {
++    case 0x14:
++        ret = s->reg_PCGR;
++        break;
++    case 0x18:
++        ret = s->reg_PLL_SYS_CFG;
++        break;
++    case 0x1c:
++        ret = s->reg_PLL_DDR_CFG;
++        break;
++    case 0x20:
++        ret = s->reg_PLL_VGA_CFG;
++        break;
++    case 0x24:
++        ret = s->reg_DIVCFG;
++        break;
++    case 0x28: /* PLL SYS STATUS */
++        ret = 0x00002401;
++        break;
++    case 0x2c: /* PLL DDR STATUS */
++        ret = 0x00100c00;
++        break;
++    case 0x30: /* PLL VGA STATUS */
++        ret = 0x00003801;
++        break;
++    case 0x34: /* DIV STATUS */
++        ret = 0x22f52015;
++        break;
++    case 0x38: /* SW RESET */
++        ret = 0x0;
++        break;
++    case 0x44: /* PLL DFC DONE */
++        ret = 0x7;
++        break;
++    default:
++        DPRINTF("Bad offset 0x%x\n", offset);
++    }
++    DPRINTF("offset 0x%x, value 0x%x\n", offset, ret);
++
++    return ret;
++}
++
++static void puv3_pm_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    PUV3PMState *s = opaque;
++
++    switch (offset) {
++    case 0x0:
++        s->reg_PMCR = value;
++        break;
++    case 0x14:
++        s->reg_PCGR = value;
++        break;
++    case 0x18:
++        s->reg_PLL_SYS_CFG = value;
++        break;
++    case 0x1c:
++        s->reg_PLL_DDR_CFG = value;
++        break;
++    case 0x20:
++        s->reg_PLL_VGA_CFG = value;
++        break;
++    case 0x24:
++    case 0x38:
++        break;
++    default:
++        DPRINTF("Bad offset 0x%x\n", offset);
++    }
++    DPRINTF("offset 0x%x, value 0x%x\n", offset, value);
++}
++
++static const MemoryRegionOps puv3_pm_ops = {
++    .read = puv3_pm_read,
++    .write = puv3_pm_write,
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static int puv3_pm_init(SysBusDevice *dev)
++{
++    PUV3PMState *s = FROM_SYSBUS(PUV3PMState, dev);
++
++    s->reg_PCGR = 0x0;
++
++    memory_region_init_io(&s->iomem, &puv3_pm_ops, s, "puv3_pm",
++            PUV3_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void puv3_pm_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = puv3_pm_init;
++}
++
++static const TypeInfo puv3_pm_info = {
++    .name = "puv3_pm",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(PUV3PMState),
++    .class_init = puv3_pm_class_init,
++};
++
++static void puv3_pm_register_type(void)
++{
++    type_register_static(&puv3_pm_info);
++}
++
++type_init(puv3_pm_register_type)
+-- 
+1.7.9.5
+

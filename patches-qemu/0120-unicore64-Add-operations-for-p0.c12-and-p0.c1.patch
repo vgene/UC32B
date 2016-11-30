@@ -1,0 +1,60 @@
+From f5f4cc5a7efb418602ae46ed0f774d1f5846bf82 Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 00:41:01 +0800
+Subject: [PATCH 120/247] unicore64: Add operations for p0.c12 and p0.c1
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h    |    1 +
+ target-unicore64/helper.c |   16 ++++++++++++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 8381d20..7cb1c5e 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -65,6 +65,7 @@ typedef struct CPUUniCore64State {
+         uint64_t c6_dcache; /* Dcache management register */
+         uint64_t c7_icache; /* Icache management register */
+         uint64_t c9_excpbase; /* Exception base register. */
++        uint64_t c12_sysu[9]; /* SysU registers. */
+     } cp0;
+ 
+     CPU_COMMON
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 85a452a..f9d9417 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -227,6 +227,12 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+             return env->cp0.c0_cpuid;
+         }
+         break;
++    case 1:
++        switch (cop) {
++        case 0:
++            return env->cp0.c1_sys;
++        }
++        break;
+     }
+     DPRINTF("Wrong register (%" PRIx64 ") or wrong operation (%" PRIx64
+             ") in %s!\n", creg, cop, __func__);
+@@ -272,6 +278,16 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+             goto unrecognized;
+         }
+         break;
++    case 12:
++        switch (cop) {
++        case 6:
++        case 7:
++            env->cp0.c12_sysu[cop] = val;
++            break;
++        default:
++            goto unrecognized;
++        }
++        break;
+     default:
+         goto unrecognized;
+     }
+-- 
+1.7.9.5
+

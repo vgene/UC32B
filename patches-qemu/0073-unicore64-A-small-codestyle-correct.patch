@@ -1,0 +1,26 @@
+From ca30d526778baabca19a70c5165c4f227a4d78ca Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 10 Aug 2012 20:18:02 +0800
+Subject: [PATCH 073/247] unicore64: A small codestyle correct
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 3902fdd..ab16cf5 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -582,7 +582,7 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     t_rd_64 = tcg_temp_new_i64();
+ 
+     /* Prepare base address */
+-    if (UCOP_REG_S1==31) {
++    if (UCOP_REG_S1 == 31) {
+         tcg_gen_movi_i64(t_addr, s->dc_pc);
+     } else {
+         tcg_gen_mov_i64(t_addr, cpu_R[UCOP_REG_S1]);
+-- 
+1.7.9.5
+

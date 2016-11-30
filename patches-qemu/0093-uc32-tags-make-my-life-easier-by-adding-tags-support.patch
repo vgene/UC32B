@@ -1,0 +1,28 @@
+From 8ebceb6d0cc3ab83c08d49b7197496a279509aa3 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 25 May 2012 15:15:18 +0800
+Subject: [PATCH 093/247] uc32-tags: make my life easier by adding tags
+ support
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ Makefile |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/Makefile b/Makefile
+index 000b46c..37fafdb 100644
+--- a/Makefile
++++ b/Makefile
+@@ -330,6 +330,9 @@ test speed: all
+ TAGS:
+ 	find "$(SRC_PATH)" -name '*.[hc]' -print0 | xargs -0 etags
+ 
++tags:
++	find "$(SRC_PATH)" -name '*.[hc]' -print0 | xargs -0 ctags
++
+ cscope:
+ 	rm -f ./cscope.*
+ 	find "$(SRC_PATH)" -name "*.[chsS]" -print | sed 's,^\./,,' > ./cscope.files
+-- 
+1.7.9.5
+

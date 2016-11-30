@@ -1,0 +1,47 @@
+From 6951b20bed64d8f2e2749038c84f32d813c11977 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 03:07:52 +0800
+Subject: [PATCH 156/247] unicore64: Adjust output format in softmmu.c
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index a73cfe8..99a1e22 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -19,7 +19,7 @@
+ #define DEBUG_UC64
+ 
+ #ifdef DEBUG_UC64
+-#define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
++#define DPRINTF(fmt, ...) printf("\t\t%s: " fmt , __func__, ## __VA_ARGS__)
+ #else
+ #define DPRINTF(fmt, ...) do {} while (0)
+ #endif
+@@ -196,7 +196,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+ 
+ do_fault:
+     if (code) {
+-        DPRINTF("\tva %" PRIx64 " desc %" PRIx64 " code %d is_user %d\n",
++        DPRINTF("va %" PRIx64 " desc %" PRIx64 " code %d is_user %d\n",
+                     address, desc, code, is_user);
+         env->cp0.c4_epc = address;
+         if (access_type == 2) {
+@@ -238,8 +238,10 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+                             &prot, &page_size);
+         }
+         if ((address & 0xfffffff000000000) != 0xfffffff000000000) {
+-            DPRINTF("\tva %" PRIx64 " pa %" PRIx64 " pc %" PRIx64 "\n",
++            if ((address & 0xffffffff00000000) != 0xf00000000) {
++                DPRINTF("va %" PRIx64 " pa %" PRIx64 " pc %" PRIx64 "\n",
+                     address, phys_addr, env->regs[31]);
++            }
+         }
+     }
+ 
+-- 
+1.7.9.5
+

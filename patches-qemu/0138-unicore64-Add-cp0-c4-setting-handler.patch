@@ -1,0 +1,36 @@
+From 65e8128969fc6ee5028c39c994ab38d4ac3bd689 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 21:52:32 +0800
+Subject: [PATCH 138/247] unicore64: Add cp0-c4 setting handler
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 78ad3e0..f7514b4 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -333,6 +333,18 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         }
+         env->cp0.c2_base = val;
+         break;
++    case 4:
++        switch (cop) {
++        case 0:
++            env->cp0.c4_dtrapaddr = val;
++            break;
++        case 1:
++            env->cp0.c4_epc = val;
++            break;
++        default:
++            goto unrecognized;
++        }
++        break;
+     case 5:
+         switch (cop) {
+         case 0x18:
+-- 
+1.7.9.5
+

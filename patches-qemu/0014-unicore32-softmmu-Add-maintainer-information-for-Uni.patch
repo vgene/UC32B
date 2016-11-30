@@ -1,0 +1,33 @@
+From 60044f1e2a234881b395974aa0c359427a9646d8 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 25 May 2012 18:46:14 +0800
+Subject: [PATCH 014/247] unicore32-softmmu: Add maintainer information for
+ UniCore32 machine
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ MAINTAINERS |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2d219d2..708ad54 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -405,6 +405,14 @@ M: Alexander Graf <agraf@suse.de>
+ S: Maintained
+ F: hw/s390-*.c
+ 
++UniCore32 Machines
++-------------
++PKUnity-3 SoC initramfs-with-busybox
++M: Guan Xuetao <gxt@mprc.pku.edu.cn>
++S: Maintained
++F: hw/puv3*
++F: hw/unicore32/
++
+ X86 Machines
+ ------------
+ PC
+-- 
+1.7.9.5
+

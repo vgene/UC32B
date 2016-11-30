@@ -1,0 +1,173 @@
+From dd24cebef1d788d5b6fae34a4963f805a7a7ab16 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 23 Jul 2013 10:17:21 +0800
+Subject: [PATCH 230/247] unicore64: Add share IO reg emulation
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/puv4.c                  |    1 +
+ hw/puv4.h                  |    1 +
+ hw/puv4_io_ctl.c           |   78 ++++++++++++++++++++++++++++++++++++++++++++
+ hw/unicore64/Makefile.objs |    1 +
+ target-unicore64/cpu.h     |    2 ++
+ target-unicore64/softmmu.c |   11 +++++--
+ 6 files changed, 92 insertions(+), 2 deletions(-)
+ create mode 100644 hw/puv4_io_ctl.c
+
+diff --git a/hw/puv4.c b/hw/puv4.c
+index 3a41ba4..47aa55d 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -20,6 +20,7 @@ static void puv4_soc_init(CPUUniCore64State *env)
+     MemoryRegion *i8042 = g_new(MemoryRegion, 1);
+     int i;
+ 
++    sysbus_create_varargs("uc64_io_ctl", UC64_IO_CTL_BASE);
+     dev = sysbus_create_simple("uc64_soc_intc", PUV4_INTC_BASE,
+             uc64_cpu_intc[UC64_INTR_DEV]);
+     for (i = 0; i < PUV4_IRQS_NR; i++) {
+diff --git a/hw/puv4.h b/hw/puv4.h
+index 13acf20..2ed306c 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -13,6 +13,7 @@
+ #define PUV4_IRQS_PS2_KBD       (22)
+ #define PUV4_INTC_BASE          (0xee600000)
+ #define PUV4_PS2_BASE           (0xef100000)
++#define UC64_IO_CTL_BASE        (0xff6100000ULL) /* FAKE */
+ 
+ extern qemu_irq *uc64_cpu_intc;
+ #endif /* !QEMU_HW_PUV4_H */
+diff --git a/hw/puv4_io_ctl.c b/hw/puv4_io_ctl.c
+new file mode 100644
+index 0000000..c7a6f1c
+--- /dev/null
++++ b/hw/puv4_io_ctl.c
+@@ -0,0 +1,78 @@
++#include "cpu.h"
++#include "sysbus.h"
++
++#undef DEBUG_PUV4
++#include "puv4.h"
++
++typedef struct {
++    SysBusDevice busdev;
++    MemoryRegion iomem;
++    uint32_t reg_IO; /* IO share reg */
++} UC64IOState;
++
++static uint64_t uc64_io_ctl_read(void *opaque, target_phys_addr_t offset,
++        unsigned size)
++{
++    UC64IOState *s = opaque;
++
++    if (offset == 0x00) {
++        return (uint64_t)s->reg_IO;
++    } else {
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++    return 0;
++}
++
++static void uc64_io_ctl_write(void *opaque, target_phys_addr_t offset,
++        uint64_t value, unsigned size)
++{
++    UC64IOState *s = opaque;
++    if (offset == 0x00) {
++        s->reg_IO = value;
++        share_io_reg = value;  /* update share_io_reg for do_interrupt */
++    } else {
++        DPRINTF("Bad offset %x\n", (int)offset);
++    }
++}
++
++static const MemoryRegionOps uc64_io_ctl_ops = {
++    .read = uc64_io_ctl_read,
++    .write = uc64_io_ctl_write,
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static int uc64_io_ctl_init(SysBusDevice *dev)
++{
++    UC64IOState *s = FROM_SYSBUS(UC64IOState, dev);
++
++    memory_region_init_io(&s->iomem, &uc64_io_ctl_ops, s, "uc64_io_ctl",
++            PUV4_REGS_OFFSET);
++    sysbus_init_mmio(dev, &s->iomem);
++
++    return 0;
++}
++
++static void uc64_io_ctl_class_init(ObjectClass *klass, void *data)
++{
++    SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
++
++    sdc->init = uc64_io_ctl_init;
++}
++
++static const TypeInfo uc64_io_ctl_info = {
++    .name = "uc64_io_ctl",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(UC64IOState),
++    .class_init = uc64_io_ctl_class_init,
++};
++
++static void uc64_io_ctl_register_type(void)
++{
++    type_register_static(&uc64_io_ctl_info);
++}
++
++type_init(uc64_io_ctl_register_type)
+diff --git a/hw/unicore64/Makefile.objs b/hw/unicore64/Makefile.objs
+index 33d8c05..0a653e6 100644
+--- a/hw/unicore64/Makefile.objs
++++ b/hw/unicore64/Makefile.objs
+@@ -2,5 +2,6 @@
+ 
+ # PKUnity-v4 SoC and board information
+ obj-${CONFIG_PUV4} += ../puv4.o
++obj-${CONFIG_PUV4} += ../puv4_io_ctl.o
+ obj-y += cp0_itm.o
+ obj-y += cp0_intc.o
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 6c31455..0f1fca9 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -194,6 +194,8 @@ static inline bool cpu_has_work(CPUUniCore64State *env)
+ #define UC64_INTR_DEV           (4)
+ #define UC64_INTR_PFM           (5)
+ 
++uint32_t share_io_reg;  /* Fake share IO reg */
++
+ /* cp0_itm.c */
+ void uc64_cp0_itm_init(CPUUniCore64State *env);
+ uint64_t uc64_cp0_itimer_get_delta(void);
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 0d3f26a..3348e8f 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -263,8 +263,15 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+         page_size = TARGET_PAGE_SIZE;
+         ret = 0;
+     } else {
+-        ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
+-                        &prot, &page_size);
++        if (address == 0xfffffffff6100000ULL) {
++            phys_addr = 0xff6100000;
++            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
++            page_size = TARGET_PAGE_SIZE;
++            ret = 0;
++        } else {
++            ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
++                    &prot, &page_size);
++        }
+     }
+ 
+     if (ret == 0) {
+-- 
+1.7.9.5
+

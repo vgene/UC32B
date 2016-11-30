@@ -1,0 +1,27 @@
+From 3ed9dc859791eb5442977f23d0584a5123ae6e37 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 4 Jan 2013 18:11:12 +0800
+Subject: [PATCH 219/247] unicore64: Exclude PS2_CNT reg from i8042 iomem
+ region
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/puv4.c b/hw/puv4.c
+index f988ed0..a0d4310 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -26,7 +26,7 @@ static void puv4_soc_init(CPUUniCore64State *env)
+     }
+ 
+     i8042_mm_init(intc_irqs[PUV4_IRQS_PS2_KBD], NULL, i8042,
+-            PUV4_REGS_OFFSET, 0x10);
++            (0x68 << 2), 0x10); /* PS2_CNT reg (0x68<<2) should be excluded */
+     memory_region_add_subregion(get_system_memory(), PUV4_PS2_BASE, i8042);
+ }
+ 
+-- 
+1.7.9.5
+

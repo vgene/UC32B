@@ -1,0 +1,26 @@
+From 3cb5a1513ba74556cfc13b8987ce6b1966753393 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 03:21:44 +0800
+Subject: [PATCH 158/247] unicore64: Close debug information of puv4_cp0_itm
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4_cp0_itm.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+index eac90e3..ae43a0f 100644
+--- a/hw/puv4_cp0_itm.c
++++ b/hw/puv4_cp0_itm.c
+@@ -11,7 +11,7 @@
+ #include "sysbus.h"
+ #include "ptimer.h"
+ 
+-#define DEBUG_PUV4
++#undef DEBUG_PUV4
+ #include "puv4.h"
+ 
+ /* puv4 ostimer implementation. */
+-- 
+1.7.9.5
+

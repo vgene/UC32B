@@ -1,0 +1,193 @@
+From 4c23752fd9317f8e6aecdec47ab8dfdca407152f Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 25 May 2012 17:46:09 +0800
+Subject: [PATCH 007/247] unicore32-softmmu: Add puv3 soc/board support
+
+This patch only add puv3 soc/board support, which introduces puv3
+machine description, and specifies console type.
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ default-configs/unicore32-softmmu.mak |    1 +
+ hw/puv3.c                             |   93 +++++++++++++++++++++++++++++++++
+ hw/puv3.h                             |   49 +++++++++++++++++
+ hw/unicore32/Makefile.objs            |    5 ++
+ 4 files changed, 148 insertions(+)
+ create mode 100644 hw/puv3.c
+ create mode 100644 hw/puv3.h
+
+diff --git a/default-configs/unicore32-softmmu.mak b/default-configs/unicore32-softmmu.mak
+index 5f04fe3..726a338 100644
+--- a/default-configs/unicore32-softmmu.mak
++++ b/default-configs/unicore32-softmmu.mak
+@@ -1 +1,2 @@
+ # Default configuration for unicore32-softmmu
++CONFIG_PUV3=y
+diff --git a/hw/puv3.c b/hw/puv3.c
+new file mode 100644
+index 0000000..0dc129d
+--- /dev/null
++++ b/hw/puv3.c
+@@ -0,0 +1,93 @@
++/*
++ * Generic PKUnity SoC machine and board descriptor
++ *
++ * Copyright (C) 2010-2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "console.h"
++#include "elf.h"
++#include "exec-memory.h"
++#include "sysbus.h"
++#include "boards.h"
++#include "loader.h"
++#include "pc.h"
++
++#undef DEBUG_PUV3
++#include "puv3.h"
++
++#define KERNEL_LOAD_ADDR        0x03000000
++#define KERNEL_MAX_SIZE         0x00800000 /* Just a guess */
++
++static void puv3_soc_init(CPUUniCore32State *env)
++{
++    /* TODO */
++}
++
++static void puv3_board_init(CPUUniCore32State *env, ram_addr_t ram_size)
++{
++    MemoryRegion *ram_memory = g_new(MemoryRegion, 1);
++
++    /* SDRAM at address zero.  */
++    memory_region_init_ram(ram_memory, "puv3.ram", ram_size);
++    vmstate_register_ram_global(ram_memory);
++    memory_region_add_subregion(get_system_memory(), 0, ram_memory);
++}
++
++static void puv3_load_kernel(const char *kernel_filename)
++{
++    int size;
++
++    assert(kernel_filename != NULL);
++
++    /* only zImage format supported */
++    size = load_image_targphys(kernel_filename, KERNEL_LOAD_ADDR,
++            KERNEL_MAX_SIZE);
++    if (size < 0) {
++        hw_error("Load kernel error: '%s'\n", kernel_filename);
++    }
++
++    /* cheat curses that we have a graphic console, only under ocd console */
++    graphic_console_init(NULL, NULL, NULL, NULL, NULL);
++}
++
++static void puv3_init(ram_addr_t ram_size, const char *boot_device,
++                     const char *kernel_filename, const char *kernel_cmdline,
++                     const char *initrd_filename, const char *cpu_model)
++{
++    CPUUniCore32State *env;
++
++    if (initrd_filename) {
++        hw_error("Please use kernel built-in initramdisk.\n");
++    }
++
++    if (!cpu_model) {
++        cpu_model = "UniCore-II";
++    }
++
++    env = cpu_init(cpu_model);
++    if (!env) {
++        hw_error("Unable to find CPU definition\n");
++    }
++
++    puv3_soc_init(env);
++    puv3_board_init(env, ram_size);
++    puv3_load_kernel(kernel_filename);
++}
++
++static QEMUMachine puv3_machine = {
++    .name = "puv3",
++    .desc = "PKUnity Version-3 based on UniCore32",
++    .init = puv3_init,
++    .use_scsi = 0,
++};
++
++static void puv3_machine_init(void)
++{
++    qemu_register_machine(&puv3_machine);
++}
++
++machine_init(puv3_machine_init)
+diff --git a/hw/puv3.h b/hw/puv3.h
+new file mode 100644
+index 0000000..f37adcb
+--- /dev/null
++++ b/hw/puv3.h
+@@ -0,0 +1,49 @@
++/*
++ * Misc PKUnity SoC declarations
++ *
++ * Copyright (C) 2010-2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#ifndef QEMU_HW_PUV3_H
++#define QEMU_HW_PUV3_H
++
++#define PUV3_REGS_OFFSET        (0x1000) /* 4K is reasonable */
++
++/* PKUnity System bus (AHB): 0xc0000000 - 0xedffffff (640MB) */
++#define PUV3_DMA_BASE           (0xc0200000) /* AHB-4 */
++
++/* PKUnity Peripheral bus (APB): 0xee000000 - 0xefffffff (128MB) */
++#define PUV3_GPIO_BASE          (0xee500000) /* APB-5 */
++#define PUV3_INTC_BASE          (0xee600000) /* APB-6 */
++#define PUV3_OST_BASE           (0xee800000) /* APB-8 */
++#define PUV3_PM_BASE            (0xeea00000) /* APB-10 */
++#define PUV3_PS2_BASE           (0xeeb00000) /* APB-11 */
++
++/* Hardware interrupts */
++#define PUV3_IRQS_NR            (32)
++
++#define PUV3_IRQS_GPIOLOW0      (0)
++#define PUV3_IRQS_GPIOLOW1      (1)
++#define PUV3_IRQS_GPIOLOW2      (2)
++#define PUV3_IRQS_GPIOLOW3      (3)
++#define PUV3_IRQS_GPIOLOW4      (4)
++#define PUV3_IRQS_GPIOLOW5      (5)
++#define PUV3_IRQS_GPIOLOW6      (6)
++#define PUV3_IRQS_GPIOLOW7      (7)
++#define PUV3_IRQS_GPIOHIGH      (8)
++#define PUV3_IRQS_PS2_KBD       (22)
++#define PUV3_IRQS_PS2_AUX       (23)
++#define PUV3_IRQS_OST0          (26)
++
++/* All puv3_*.c use DPRINTF for debug. */
++#ifdef DEBUG_PUV3
++#define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
++#else
++#define DPRINTF(fmt, ...) do {} while (0)
++#endif
++
++#endif /* !QEMU_HW_PUV3_H */
+diff --git a/hw/unicore32/Makefile.objs b/hw/unicore32/Makefile.objs
+index b6a3383..0725ce3 100644
+--- a/hw/unicore32/Makefile.objs
++++ b/hw/unicore32/Makefile.objs
+@@ -1 +1,6 @@
+ # For UniCore32 machines and boards
++
++# PKUnity-v3 SoC and board information
++obj-${CONFIG_PUV3} += puv3.o
++
++obj-y := $(addprefix ../,$(obj-y))
+-- 
+1.7.9.5
+

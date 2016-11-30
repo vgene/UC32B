@@ -1,0 +1,264 @@
+From 086756d2aec13888bda51d45a6e0284e4d03cfda Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 25 May 2012 18:10:53 +0800
+Subject: [PATCH 001/247] unicore32-softmmu: Add unicore32-softmmu build
+ support
+
+This patch adds unicore32-softmmu build support, include configure,
+makefile, arch_init, and all missing functions needed by softmmu.
+Although all missing functions are empty, unicore32-softmmu could
+be build successfully.
+By 20120804: change QEMU_ARCH_UNICORE32 to 0x4000
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ arch_init.c                           |    2 ++
+ arch_init.h                           |    1 +
+ configure                             |    1 +
+ default-configs/unicore32-softmmu.mak |    1 +
+ hw/unicore32/Makefile.objs            |    1 +
+ target-unicore32/Makefile.objs        |    2 +-
+ target-unicore32/helper.c             |   27 ++++++++++++-----------
+ target-unicore32/machine.c            |   23 +++++++++++++++++++
+ target-unicore32/op_helper.c          |   24 +++++++++++++++++++-
+ target-unicore32/softmmu.c            |   39 +++++++++++++++++++++++++++++++++
+ 10 files changed, 106 insertions(+), 15 deletions(-)
+ create mode 100644 default-configs/unicore32-softmmu.mak
+ create mode 100644 hw/unicore32/Makefile.objs
+ create mode 100644 target-unicore32/machine.c
+ create mode 100644 target-unicore32/softmmu.c
+
+diff --git a/arch_init.c b/arch_init.c
+index 60823ba..7b65c48 100644
+--- a/arch_init.c
++++ b/arch_init.c
+@@ -91,6 +91,8 @@ int graphic_depth = 15;
+ #define QEMU_ARCH QEMU_ARCH_SPARC
+ #elif defined(TARGET_XTENSA)
+ #define QEMU_ARCH QEMU_ARCH_XTENSA
++#elif defined(TARGET_UNICORE32)
++#define QEMU_ARCH QEMU_ARCH_UNICORE32
+ #endif
+ 
+ const uint32_t arch_type = QEMU_ARCH;
+diff --git a/arch_init.h b/arch_init.h
+index 3dfea3b..547f93c 100644
+--- a/arch_init.h
++++ b/arch_init.h
+@@ -17,6 +17,7 @@ enum {
+     QEMU_ARCH_SPARC = 2048,
+     QEMU_ARCH_XTENSA = 4096,
+     QEMU_ARCH_OPENRISC = 8192,
++    QEMU_ARCH_UNICORE32 = 0x4000,
+ };
+ 
+ extern const uint32_t arch_type;
+diff --git a/configure b/configure
+index 280726c..efaff00 100755
+--- a/configure
++++ b/configure
+@@ -935,6 +935,7 @@ sparc64-softmmu \
+ s390x-softmmu \
+ xtensa-softmmu \
+ xtensaeb-softmmu \
++unicore32-softmmu \
+ "
+ fi
+ # the following are Linux specific
+diff --git a/default-configs/unicore32-softmmu.mak b/default-configs/unicore32-softmmu.mak
+new file mode 100644
+index 0000000..5f04fe3
+--- /dev/null
++++ b/default-configs/unicore32-softmmu.mak
+@@ -0,0 +1 @@
++# Default configuration for unicore32-softmmu
+diff --git a/hw/unicore32/Makefile.objs b/hw/unicore32/Makefile.objs
+new file mode 100644
+index 0000000..b6a3383
+--- /dev/null
++++ b/hw/unicore32/Makefile.objs
+@@ -0,0 +1 @@
++# For UniCore32 machines and boards
+diff --git a/target-unicore32/Makefile.objs b/target-unicore32/Makefile.objs
+index 2e0e093..6af1089 100644
+--- a/target-unicore32/Makefile.objs
++++ b/target-unicore32/Makefile.objs
+@@ -1,4 +1,4 @@
+ obj-y += translate.o op_helper.o helper.o cpu.o
+-obj-$(CONFIG_SOFTMMU) += machine.o
++obj-$(CONFIG_SOFTMMU) += machine.o softmmu.o
+ 
+ $(obj)/op_helper.o: QEMU_CFLAGS += $(HELPER_CFLAGS)
+diff --git a/target-unicore32/helper.c b/target-unicore32/helper.c
+index 9fe4a37..9b8ff06 100644
+--- a/target-unicore32/helper.c
++++ b/target-unicore32/helper.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2010-2011 GUAN Xue-tao
++ * Copyright (C) 2010-2012 Guan Xuetao
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -45,18 +45,26 @@ uint32_t HELPER(clz)(uint32_t x)
+     return clz32(x);
+ }
+ 
++#ifdef CONFIG_USER_ONLY
++void switch_mode(CPUUniCore32State *env, int mode)
++{
++    if (mode != ASR_MODE_USER) {
++        cpu_abort(env, "Tried to switch out of user mode\n");
++    }
++}
++
+ void do_interrupt(CPUUniCore32State *env)
+ {
+-    env->exception_index = -1;
++    cpu_abort(env, "NO interrupt in user mode\n");
+ }
+ 
+-int uc32_cpu_handle_mmu_fault(CPUUniCore32State *env, target_ulong address, int rw,
+-                              int mmu_idx)
++int uc32_cpu_handle_mmu_fault(CPUUniCore32State *env, target_ulong address,
++                              int access_type, int mmu_idx)
+ {
+-    env->exception_index = UC32_EXCP_TRAP;
+-    env->cp0.c4_faultaddr = address;
++    cpu_abort(env, "NO mmu fault in user mode\n");
+     return 1;
+ }
++#endif
+ 
+ /* These should probably raise undefined insn exceptions.  */
+ void HELPER(set_cp)(CPUUniCore32State *env, uint32_t insn, uint32_t val)
+@@ -84,13 +92,6 @@ uint32_t HELPER(get_cp0)(CPUUniCore32State *env, uint32_t insn)
+     return 0;
+ }
+ 
+-void switch_mode(CPUUniCore32State *env, int mode)
+-{
+-    if (mode != ASR_MODE_USER) {
+-        cpu_abort(env, "Tried to switch out of user mode\n");
+-    }
+-}
+-
+ void HELPER(set_r29_banked)(CPUUniCore32State *env, uint32_t mode, uint32_t val)
+ {
+     cpu_abort(env, "banked r29 write\n");
+diff --git a/target-unicore32/machine.c b/target-unicore32/machine.c
+new file mode 100644
+index 0000000..60b2ec1
+--- /dev/null
++++ b/target-unicore32/machine.c
+@@ -0,0 +1,23 @@
++/*
++ * Generic machine functions for UniCore32 ISA
++ *
++ * Copyright (C) 2010-2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "hw/hw.h"
++
++void cpu_save(QEMUFile *f, void *opaque)
++{
++    hw_error("%s not supported yet.\n", __func__);
++}
++
++int cpu_load(QEMUFile *f, void *opaque, int version_id)
++{
++    hw_error("%s not supported yet.\n", __func__);
++
++    return 0;
++}
+diff --git a/target-unicore32/op_helper.c b/target-unicore32/op_helper.c
+index b954c30..6df30db 100644
+--- a/target-unicore32/op_helper.c
++++ b/target-unicore32/op_helper.c
+@@ -1,7 +1,7 @@
+ /*
+  *  UniCore32 helper routines
+  *
+- * Copyright (C) 2010-2011 GUAN Xue-tao
++ * Copyright (C) 2010-2012 Guan Xuetao
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -248,3 +248,25 @@ uint32_t HELPER(ror_cc)(uint32_t x, uint32_t i)
+         return ((uint32_t)x >> shift) | (x << (32 - shift));
+     }
+ }
++
++#ifndef CONFIG_USER_ONLY
++#define MMUSUFFIX _mmu
++
++#define SHIFT 0
++#include "softmmu_template.h"
++
++#define SHIFT 1
++#include "softmmu_template.h"
++
++#define SHIFT 2
++#include "softmmu_template.h"
++
++#define SHIFT 3
++#include "softmmu_template.h"
++
++void tlb_fill(CPUUniCore32State *env1, target_ulong addr, int is_write,
++        int mmu_idx, uintptr_t retaddr)
++{
++    cpu_abort(env, "%s not supported yet\n", __func__);
++}
++#endif
+diff --git a/target-unicore32/softmmu.c b/target-unicore32/softmmu.c
+new file mode 100644
+index 0000000..6fec77e
+--- /dev/null
++++ b/target-unicore32/softmmu.c
+@@ -0,0 +1,39 @@
++/*
++ * Softmmu related functions
++ *
++ * Copyright (C) 2010-2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#ifdef CONFIG_USER_ONLY
++#error This file only exist under softmmu circumstance
++#endif
++
++#include <cpu.h>
++
++void switch_mode(CPUUniCore32State *env, int mode)
++{
++    cpu_abort(env, "%s not supported yet\n", __func__);
++}
++
++void do_interrupt(CPUUniCore32State *env)
++{
++    cpu_abort(env, "%s not supported yet\n", __func__);
++}
++
++int uc32_cpu_handle_mmu_fault(CPUUniCore32State *env, target_ulong address,
++                              int access_type, int mmu_idx)
++{
++    cpu_abort(env, "%s not supported yet\n", __func__);
++    return 1;
++}
++
++target_phys_addr_t cpu_get_phys_page_debug(CPUUniCore32State *env,
++        target_ulong addr)
++{
++    cpu_abort(env, "%s not supported yet\n", __func__);
++    return addr;
++}
+-- 
+1.7.9.5
+

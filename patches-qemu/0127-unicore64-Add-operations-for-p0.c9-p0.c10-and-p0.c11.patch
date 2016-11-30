@@ -1,0 +1,56 @@
+From 62645e3b2c343f3fa4f00d85f5c0858c7402feb1 Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 03:37:33 +0800
+Subject: [PATCH 127/247] unicore64: Add operations for p0.c9, p0.c10 and
+ p0.c11
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h    |    2 ++
+ target-unicore64/helper.c |   17 +++++++++++++++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index b4da3fb..9f6537b 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -67,6 +67,8 @@ typedef struct CPUUniCore64State {
+         uint64_t c7_icache; /* Icache management register */
+         uint64_t c8_mrar[16]; /* Memory region configuration registers */
+         uint64_t c9_excpbase; /* Exception base register. */
++        uint64_t c10_intr[11]; /* Timer interrupt and information registers */
++        uint64_t c11_rwmargin; /* Read/Write margin control register */
+         uint64_t c12_sysu[8]; /* SysU registers. */
+     } cp0;
+ 
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 9adf994..5ec0fbf 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -272,6 +272,23 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+             return env->cp0.c8_mrar[cop];
+         }
+         break;
++    case 9:
++        switch (cop) {
++        case 0:
++            return env->cp0.c9_excpbase;
++        }
++        break;
++    case 10:
++        if (cop < 11) {
++            return env->cp0.c10_intr[cop];
++        }
++        break;
++    case 11:
++        switch (cop) {
++        case 0:
++            return env->cp0.c11_rwmargin;
++        }
++        break;
+     case 12:
+         if (cop < 8) {
+             return env->cp0.c12_sysu[cop];
+-- 
+1.7.9.5
+

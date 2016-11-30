@@ -1,0 +1,49 @@
+From 1c85eaf9d19f355018f26e8ddaf3fc36b71af19d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 19:16:55 +0800
+Subject: [PATCH 207/247] unicore64: Rename cpu_intc to uc64_cpu_intc
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4_cp0_intc.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/hw/puv4_cp0_intc.c b/hw/puv4_cp0_intc.c
+index 40157e3..50e1665 100644
+--- a/hw/puv4_cp0_intc.c
++++ b/hw/puv4_cp0_intc.c
+@@ -14,21 +14,21 @@
+ #define DEBUG_PUV4
+ #include "puv4.h"
+ 
+-static qemu_irq *cpu_intc;
++static qemu_irq *uc64_cpu_intc;
+ 
+ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
+ {
+     if (irq == 2) {
+         if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
+             env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
+-            qemu_irq_lower(cpu_intc[irq]);
++            qemu_irq_lower(uc64_cpu_intc[irq]);
+         }
+     }
+ }
+ 
+ void uc64_cp0_intc_irq_raise(int irq)
+ {
+-    qemu_irq_raise(cpu_intc[irq]);
++    qemu_irq_raise(uc64_cpu_intc[irq]);
+ }
+ 
+ /* Process a change in an external INTC input. */
+@@ -56,5 +56,5 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+ 
+ void  uc64_cp0_intc_init(CPUUniCore64State *env)
+ {
+-    cpu_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 6);
++    uc64_cpu_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 6);
+ }
+-- 
+1.7.9.5
+

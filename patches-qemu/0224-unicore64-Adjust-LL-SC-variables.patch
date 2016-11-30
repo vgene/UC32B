@@ -1,0 +1,113 @@
+From c0afa740405887c51976ef6ecb6602202ec8358f Mon Sep 17 00:00:00 2001
+From: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+Date: Mon, 28 Jan 2013 19:19:27 +0800
+Subject: [PATCH 224/247] unicore64: Adjust LL SC variables
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h       |    6 +++---
+ target-unicore64/translate.c |   30 +++++++++++++++---------------
+ 2 files changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index dc2d3b1..f4bf67c 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -50,9 +50,9 @@ typedef struct CPUUniCore64State {
+     uint64_t NF; /* N is bit 31. All other bits are undefined.  */
+ 
+     /* Addr for LL-SC */
+-    uint64_t exclusive_addr_ll;
+-    /* LLbit for LL-SC */
+-    uint64_t LLbit;
++    uint64_t llsc_exclusive_addr;
++    /* lock for LL-SC */
++    uint64_t llsc_exclusive_lock;
+ 
+     /* System control coprocessor (cp0) */
+     struct {
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 25f663b..673011e 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -28,8 +28,8 @@ static TCGv_i64 cpu_R[32];
+ static TCGv_i64 cpu_R29[3];
+ static TCGv_i64 cpu_R30[3];
+ 
+-static TCGv_i64 ex_addr_LL; /* exclusive address for LL */
+-static TCGv_i64 LLbit; /* LLbit for LLSC */
++static TCGv_i64 LLSC_ex_addr; /* exclusive address for LLSC */
++static TCGv_i64 LLSC_ex_lock; /* exclusive lock for LLSC */
+ 
+ #include "gen-icount.h"
+ 
+@@ -61,10 +61,10 @@ void uc64_translate_init(void)
+                      offsetof(CPUUniCore64State, banked_r30[i]), r30names[i]);
+     }
+ 
+-    ex_addr_LL = tcg_global_mem_new_i64(TCG_AREG0,
+-           offsetof(CPUUniCore64State, exclusive_addr_ll), "ex_addr_ll");
+-    LLbit = tcg_global_mem_new_i64(TCG_AREG0,
+-           offsetof(CPUUniCore64State, LLbit), "LLbit");
++    LLSC_ex_addr = tcg_global_mem_new_i64(TCG_AREG0,
++           offsetof(CPUUniCore64State, llsc_exclusive_addr), "llsc_ex_addr");
++    LLSC_ex_lock = tcg_global_mem_new_i64(TCG_AREG0,
++           offsetof(CPUUniCore64State, llsc_exclusive_lock), "llsc_ex_lock");
+ 
+ #define GEN_HELPER 2
+ #include "helper.h"
+@@ -1220,26 +1220,26 @@ static void do_llsc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             tcg_gen_qemu_ld32u(cpu_R[UCOP_REG_D], t_addr, IS_USER(s));
+         }
+ 
+-        tcg_gen_mov_i64(ex_addr_LL, t_addr);
+-        tcg_gen_movi_i64(LLbit, true);
++        tcg_gen_mov_i64(LLSC_ex_addr, t_addr);
++        tcg_gen_movi_i64(LLSC_ex_lock, true);
+     } else { /* SC */
+         /* SC && LLbit is true */
+         fail_label = gen_new_label();
+         done_label = gen_new_label();
+ 
+-        tcg_gen_brcond_i64(TCG_COND_NE, ex_addr_LL, t_addr, fail_label);
+-        tcg_gen_brcondi_i64(TCG_COND_NE, LLbit, true, fail_label);
++        tcg_gen_brcond_i64(TCG_COND_NE, LLSC_ex_addr, t_addr, fail_label);
++        tcg_gen_brcondi_i64(TCG_COND_NE, LLSC_ex_lock, true, fail_label);
+ 
+         tcg_gen_mov_i64(t_rd_64, cpu_R[UCOP_REG_D]);
+         if (UCOP_SET(22)) { /* double word */
+-            tcg_gen_qemu_st64(t_rd_64, ex_addr_LL, IS_USER(s));
++            tcg_gen_qemu_st64(t_rd_64, LLSC_ex_addr, IS_USER(s));
+         } else { /* word */
+-            tcg_gen_qemu_st32(t_rd_64, ex_addr_LL, IS_USER(s));
++            tcg_gen_qemu_st32(t_rd_64, LLSC_ex_addr, IS_USER(s));
+         }
+ 
+         /* Now, t_rd_64 is used for LLbit */
+         tcg_gen_movi_i64(cpu_R[UCOP_REG_D], true);
+-        tcg_gen_movi_i64(LLbit, false);
++        tcg_gen_movi_i64(LLSC_ex_lock, false);
+ 
+         tcg_gen_br(done_label);
+ 
+@@ -1429,7 +1429,7 @@ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+         break;
+     case 0x3:
+         do_ldst(env, s, insn);
+-        tcg_gen_movi_i64(LLbit, false);
++        tcg_gen_movi_i64(LLSC_ex_lock, false);
+         break;
+     case 0x4:
+         switch ((insn >> 23) & 0x3) {
+@@ -1441,7 +1441,7 @@ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+             break;
+         case 0x3:
+             do_swap(env, s, insn);
+-            tcg_gen_movi_i64(LLbit, false);
++            tcg_gen_movi_i64(LLSC_ex_lock, false);
+             break;
+         default:
+             ILLEGAL_INSN(true);
+-- 
+1.7.9.5
+

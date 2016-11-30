@@ -1,0 +1,49 @@
+From 62f5dbf81e4f3b73d1dddc5ef70dfd50cc47dd58 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Fri, 17 Aug 2012 22:52:29 +0800
+Subject: [PATCH 145/247] unicore64-ucf64: Adjust variables position
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c   |    4 ----
+ target-unicore64/ucf64_trans.h |    5 ++++-
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 4f7b28c..cf99669 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -23,10 +23,6 @@
+ #define GEN_HELPER 1
+ #include "helper.h"
+ 
+-/* FIXME:  These should be removed.  */
+-TCGv_i32 cpu_F0s, cpu_F1s;
+-TCGv_i64 cpu_F0d, cpu_F1d;
+-
+ static TCGv_ptr cpu_env;
+ static TCGv_i64 cpu_R[32];
+ 
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 734201e..af4aa48 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -9,6 +9,10 @@
+  * later version. See the COPYING file in the top-level directory.
+  */
+ 
++/* FIXME:  These should be removed.  */
++static TCGv_i32 cpu_F0s, cpu_F1s;
++static TCGv_i64 cpu_F0d, cpu_F1d;
++
+ #define UCOP_UCF64_FMT          (((insn) >> 25) & 0x03)
+ 
+ static inline long ucf64_reg_offset(int reg)
+@@ -314,4 +318,3 @@ static void do_ucf64(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         break;
+     }
+ }
+-
+-- 
+1.7.9.5
+

@@ -1,0 +1,29 @@
+From e564e9d3cb68b08a00239ee2e33628b7d5261b96 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 26 Jul 2012 09:21:16 +0800
+Subject: [PATCH 018/247] unicore32: Close dump-option of cpu_dump_state_ucf64
+ function
+
+Since of tedious output, we close dump-option of cpu_dump_state_ucf64 function.
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore32/translate.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-unicore32/translate.c b/target-unicore32/translate.c
+index c74c49a..188bf8c 100644
+--- a/target-unicore32/translate.c
++++ b/target-unicore32/translate.c
+@@ -2138,7 +2138,7 @@ static const char *cpu_mode_names[16] = {
+     "UM18", "UM19", "UM1A", "EXTN", "UM1C", "UM1D", "UM1E", "SUSR"
+ };
+ 
+-#define UCF64_DUMP_STATE
++#undef UCF64_DUMP_STATE
+ #ifdef UCF64_DUMP_STATE
+ static void cpu_dump_state_ucf64(CPUUniCore32State *env, FILE *f,
+         fprintf_function cpu_fprintf, int flags)
+-- 
+1.7.9.5
+

@@ -1,0 +1,37 @@
+From 22aa91cf2f1b88af3f6f2e638c77632de75a9941 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 8 Aug 2012 17:45:55 +0800
+Subject: [PATCH 046/247] unicore64: Add DADD ADD handlers
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 49e0c41..caa67cf 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -233,6 +233,19 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         tcg_temp_free_i64(t_op1_64);
+         tcg_temp_free_i64(t_op2_64);
+         break;
++    case 0x04: /* insn ADD DADD */
++        if (UCOP_SET(22)) { /* insn DADD */
++            tcg_gen_add_i64(t_op1_64, t_op1_64, t_op2_64);
++            tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_op1_64);
++        } else { /* insn ADD */
++            tcg_gen_add_i32(t_op1_32, t_op1_32, t_op2_32);
++            tcg_gen_extu_i32_i64(cpu_R[UCOP_REG_D], t_op1_32);
++            tcg_temp_free_i32(t_op1_32);
++            tcg_temp_free_i32(t_op2_32);
++        }
++        tcg_temp_free_i64(t_op1_64);
++        tcg_temp_free_i64(t_op2_64);
++        break;
+     case 0x0d: /* insn MOV DMOV */
+         ILLEGAL_INSN(UCOP_REG_S1);
+ 
+-- 
+1.7.9.5
+

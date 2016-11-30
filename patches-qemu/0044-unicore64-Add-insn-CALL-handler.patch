@@ -1,0 +1,39 @@
+From f4c562ae9066e083d4c463cd97785271315eb512 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 8 Aug 2012 16:50:03 +0800
+Subject: [PATCH 044/247] unicore64: Add insn CALL handler
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 2f92bef..bd3b4ce 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -266,7 +266,20 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ 
+ static void do_branch(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+ {
+-    ILLEGAL_INSN(true);
++    target_ulong t_addr;
++
++    switch (insn >> 24) {
++    case 0xbe: /* insn CALL */
++        /* r30 <- next_insn */
++        tcg_gen_movi_i64(cpu_R[30], s->dc_pc);
++
++        /* r31 <- current_insn + (signed_offset * 4) */
++        t_addr = (s->dc_pc - 4) + ((((int32_t)insn) << 8) >> 6);
++        gen_goto_tb(s, 0, t_addr);
++        break;
++    default:
++        ILLEGAL_INSN(true);
++    }
+ }
+ 
+ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+-- 
+1.7.9.5
+

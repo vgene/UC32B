@@ -1,0 +1,30 @@
+From 42b1c811311ca68a87c647ed326eaee9e7fc6ee5 Mon Sep 17 00:00:00 2001
+From: CaoSong <caosong@mprc.pku.edu.cn>
+Date: Fri, 7 Sep 2012 17:23:58 +0800
+Subject: [PATCH 180/247] UniCore64: Add cp0 I&D TLB handle
+
+Signed-off-by: CaoSong <caosong@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 2e5d61c..2455f03 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -321,6 +321,12 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         break;
+     case 5:
+         switch (cop) {
++        case 0xc:
++            DPRINTF("Invalidate DTLB single entry by VA\n");
++            return;
++        case 0x14:
++            DPRINTF("Invalidate ITLB single entry by VA\n");
++            return;
+         case 0x18:
+             DPRINTF("Invalidate ITLB with ASID\n");
+             return;
+-- 
+1.7.9.5
+

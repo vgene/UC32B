@@ -1,0 +1,47 @@
+From 7e9942d7fcb14f75a3d9d39f48be75e2b469349d Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 31 Dec 2012 16:27:16 +0800
+Subject: [PATCH 203/247] unicore64: Add trace_uc64_do_interrupt
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    7 +++++++
+ trace-events               |    1 +
+ 2 files changed, 8 insertions(+)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index a3f2a48..2e270e6 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -107,9 +107,16 @@ void do_interrupt(CPUUniCore64State *env)
+ {
+     switch (env->exception_index) {
+     case UC64_EXCP_ITRAP:
++        trace_uc64_do_interrupt("ITRAP", env->uncached_asr);
++        break;
+     case UC64_EXCP_DTRAP:
++        trace_uc64_do_interrupt("DTRAP", env->uncached_asr);
++        break;
+     case UC64_INTR_ITIMER:
++        trace_uc64_do_interrupt("ITIMER", env->uncached_asr);
++        break;
+     case UC64_EXCP_PRIV:
++        trace_uc64_do_interrupt("SYSCALL", env->uncached_asr);
+         break;
+     default:
+         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
+diff --git a/trace-events b/trace-events
+index 4736c25..2a48a5f 100644
+--- a/trace-events
++++ b/trace-events
+@@ -888,6 +888,7 @@ win_helper_done(uint32_t tl) "tl=%d"
+ win_helper_retry(uint32_t tl) "tl=%d"
+ 
+ # target-unicore64/softmmu.c
++uc64_do_interrupt(const char *str, uint64_t pc) ": %s from mode %2" PRIx64
+ uc64_cpu_handle_mmu_fault(uint64_t va, uint64_t pa, uint64_t pc) ": va %16." PRIx64 " pa %16." PRIx64 " pc %16." PRIx64
+ uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRIx64 " retaddr %16." PRIx64
+ uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va %16." PRIx64 " desc %16." PRIx64 " code %d is_user %d"
+-- 
+1.7.9.5
+

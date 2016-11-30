@@ -1,0 +1,117 @@
+From f6bad618dd9a5b47e97b6bd04ca8d90813b7129e Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 18:36:34 +0800
+Subject: [PATCH 236/247] unicore64: Adjust itimer and interrupt
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/unicore64/cp0_intc.c   |    2 +-
+ hw/unicore64/cp0_itm.c    |   22 ++++++++++++----------
+ target-unicore64/cpu.h    |    4 ++--
+ target-unicore64/helper.c |   11 ++++++-----
+ 4 files changed, 21 insertions(+), 18 deletions(-)
+
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index b7a8d1a..99f32be 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -38,7 +38,7 @@ void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int val)
+ 
+ void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int irq)
+ {
+-    if ((irq == UC64_INTR_SMP) && (env->cpu_index == 1)) {
++    if (env->cpu_index == 1) {
+         qemu_irq_raise(uc64_cpu1_intc[irq]);
+     } else {
+         qemu_irq_raise(uc64_cpu0_intc[irq]);
+diff --git a/hw/unicore64/cp0_itm.c b/hw/unicore64/cp0_itm.c
+index 1590bef..a6f9e8b 100644
+--- a/hw/unicore64/cp0_itm.c
++++ b/hw/unicore64/cp0_itm.c
+@@ -19,17 +19,17 @@ typedef struct {
+     ptimer_state *ptimer;
+ } UC64CP0ITMState;
+ 
+-static UC64CP0ITMState *uc64_cp0_timer;
++static UC64CP0ITMState *uc64_cp0_timer[2];
+ 
+-uint64_t uc64_cp0_itimer_get_delta(void)
++uint64_t uc64_cp0_itimer_get_delta(int coreid)
+ {
+-    return (uint64_t)ptimer_get_count(uc64_cp0_timer->ptimer);
++    return (uint64_t)ptimer_get_count(uc64_cp0_timer[coreid]->ptimer);
+ }
+ 
+-void uc64_cp0_itimer_set_count(uint64_t value)
++void uc64_cp0_itimer_set_count(int coreid, uint64_t value)
+ {
+-    ptimer_set_count(uc64_cp0_timer->ptimer, value);
+-    ptimer_run(uc64_cp0_timer->ptimer, 1);
++    ptimer_set_count(uc64_cp0_timer[coreid]->ptimer, value);
++    ptimer_run(uc64_cp0_timer[coreid]->ptimer, 1);
+ }
+ 
+ static void uc64_cp0_itm_tick(void *opaque)
+@@ -47,8 +47,10 @@ void uc64_cp0_itm_init(CPUUniCore64State *env)
+     env->cp0.c10_itimercr = 0;
+     env->cp0.c10_itimermr = 0;
+ 
+-    uc64_cp0_timer = (UC64CP0ITMState *)g_malloc0(sizeof(UC64CP0ITMState));
+-    uc64_cp0_timer->bh = qemu_bh_new(uc64_cp0_itm_tick, env);
+-    uc64_cp0_timer->ptimer = ptimer_init(uc64_cp0_timer->bh);
+-    ptimer_set_freq(uc64_cp0_timer->ptimer, 480 * 1024 * 1024);
++    int coreid = env->cpu_index;
++    uc64_cp0_timer[coreid] =
++        (UC64CP0ITMState *)g_malloc0(sizeof(UC64CP0ITMState));
++    uc64_cp0_timer[coreid]->bh = qemu_bh_new(uc64_cp0_itm_tick, env);
++    uc64_cp0_timer[coreid]->ptimer = ptimer_init(uc64_cp0_timer[coreid]->bh);
++    ptimer_set_freq(uc64_cp0_timer[coreid]->ptimer, 480 * 1024 * 1024);
+ }
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 27796be..3e2600f 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -205,8 +205,8 @@ uint32_t share_io_reg;  /* Fake share IO reg */
+ 
+ /* cp0_itm.c */
+ void uc64_cp0_itm_init(CPUUniCore64State *env);
+-uint64_t uc64_cp0_itimer_get_delta(void);
+-void uc64_cp0_itimer_set_count(uint64_t value);
++uint64_t uc64_cp0_itimer_get_delta(int);
++void uc64_cp0_itimer_set_count(int, uint64_t value);
+ 
+ /* cp0_intc.c */
+ void uc64_cp0_intc_init(CPUUniCore64State *env);
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 6206b73..09e378a 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -349,7 +349,8 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+         case 0: /* Interrupt type */
+             return env->cp0.c10_intrtype;
+         case 9: /* Counter Register */
+-            return env->cp0.c10_itimermr - uc64_cp0_itimer_get_delta();
++            return env->cp0.c10_itimermr -
++                uc64_cp0_itimer_get_delta(env->cpu_index);
+         }
+         break;
+     case 11:
+@@ -463,11 +464,11 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         case 10: /* Match Register */
+             env->cp0.c10_itimermr = val;
+             if (env->cp0.c10_itimermr > env->cp0.c10_itimercr) {
+-                uc64_cp0_itimer_set_count(env->cp0.c10_itimermr -
+-                        env->cp0.c10_itimercr);
++                uc64_cp0_itimer_set_count(env->cpu_index,
++                        env->cp0.c10_itimermr - env->cp0.c10_itimercr);
+             } else {
+-                uc64_cp0_itimer_set_count(env->cp0.c10_itimermr +
+-                        (0xffffffffffffffffULL - env->cp0.c10_itimercr));
++                uc64_cp0_itimer_set_count(env->cpu_index, env->cp0.c10_itimermr
++                        + (0xffffffffffffffffULL - env->cp0.c10_itimercr));
+             }
+             break;
+         default:
+-- 
+1.7.9.5
+

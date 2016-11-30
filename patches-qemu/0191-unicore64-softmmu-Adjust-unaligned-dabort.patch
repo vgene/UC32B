@@ -1,0 +1,37 @@
+From 2897d10450a277edbbb81cc858de1e303fb67f5f Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Fri, 26 Oct 2012 15:01:12 +0800
+Subject: [PATCH 191/247] unicore64-softmmu: Adjust unaligned dabort
+
+Signed-off-by: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index bea0915..47e88ea 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -38,10 +38,19 @@
+ static void do_unaligned_access(target_ulong addr, int is_write,
+                                 int is_user, uintptr_t retaddr)
+ {
++    TranslationBlock *tb;
++
+     env->cp0.c3_dfaultstatus = 0x09;
+     env->cp0.c4_dtrapaddr = addr;
+     env->exception_index = UC64_EXCP_DTRAP;
+     DPRINTF("va %" PRIx64 " retaddr %" PRIx64 "\n", addr, retaddr);
++    if (retaddr) {
++        tb = tb_find_pc(retaddr);
++        if (tb) {
++            cpu_restore_state(tb, env, retaddr);
++        }
++    }
++    cpu_loop_exit(env);
+ }
+ 
+ #define SHIFT 0
+-- 
+1.7.9.5
+

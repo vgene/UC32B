@@ -1,0 +1,306 @@
+From 3ac378d1cf3e3553b3441e7f9a4956791229d712 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 19:50:10 +0800
+Subject: [PATCH 210/247] unicore64: move cp0_itm and cp0_intc into
+ hw/unicore64
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4_cp0_intc.c         |   63 --------------------------------------------
+ hw/puv4_cp0_itm.c          |   59 -----------------------------------------
+ hw/unicore64/Makefile.objs |    8 +++---
+ hw/unicore64/cp0_intc.c    |   63 ++++++++++++++++++++++++++++++++++++++++++++
+ hw/unicore64/cp0_itm.c     |   59 +++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 125 insertions(+), 127 deletions(-)
+ delete mode 100644 hw/puv4_cp0_intc.c
+ delete mode 100644 hw/puv4_cp0_itm.c
+ create mode 100644 hw/unicore64/cp0_intc.c
+ create mode 100644 hw/unicore64/cp0_itm.c
+
+diff --git a/hw/puv4_cp0_intc.c b/hw/puv4_cp0_intc.c
+deleted file mode 100644
+index 3ffe18e..0000000
+--- a/hw/puv4_cp0_intc.c
++++ /dev/null
+@@ -1,63 +0,0 @@
+-/*
+- * Fake CP0 INTC device simulation in PKUnity SoC
+- *
+- * Copyright (C) 2012 Guan Xuetao
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation, or any later version.
+- * See the COPYING file in the top-level directory.
+- */
+-#include "cpu.h"
+-#include "irq.h"
+-
+-#define DEBUG_PUV4
+-#include "puv4.h"
+-
+-static qemu_irq *uc64_cpu_intc;
+-
+-void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
+-{
+-    if (irq == 2) {
+-        if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
+-            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
+-            qemu_irq_lower(uc64_cpu_intc[irq]);
+-        }
+-    }
+-}
+-
+-void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int irq)
+-{
+-    if (irq == 2)
+-        env->cp0.c10_intrtype |= UC64_CP0_INTRTYPE_ITM;
+-
+-    qemu_irq_raise(uc64_cpu_intc[irq]);
+-}
+-
+-/* Process a change in an external INTC input. */
+-static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+-{
+-    CPUUniCore64State *env = (CPUUniCore64State *)opaque;
+-
+-    if (irq != UC64_INTR_ITM) { /* ITIMER */
+-        DPRINTF("irq 0x%x, level 0x%x\n", irq, level);
+-        abort();
+-    } else {
+-        irq = UC64_CP0_INTRTYPE_ITM;
+-    }
+-
+-    if (level) {
+-        env->cp0.c10_intrtype |= irq;
+-        if (!(env->uncached_asr & UC64_CP0_INTRTYPE_ITM)) {
+-            cpu_interrupt(env, CPU_INTERRUPT_HARD);
+-        }
+-    } else {
+-        env->cp0.c10_intrtype &= ~irq;
+-        cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+-    }
+-}
+-
+-void  uc64_cp0_intc_init(CPUUniCore64State *env)
+-{
+-    uc64_cpu_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 6);
+-}
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+deleted file mode 100644
+index 126554b..0000000
+--- a/hw/puv4_cp0_itm.c
++++ /dev/null
+@@ -1,59 +0,0 @@
+-/*
+- * Fake CP0 ITM device simulation in PKUnity SoC
+- *
+- * Copyright (C) 2012 Guan Xuetao
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation, or any later version.
+- * See the COPYING file in the top-level directory.
+- */
+-#include "ptimer.h"
+-#include "irq.h"
+-#include "cpu.h"
+-
+-#undef DEBUG_PUV4
+-#include "puv4.h"
+-
+-/* puv4 ostimer implementation. */
+-typedef struct {
+-    QEMUBH *bh;
+-    ptimer_state *ptimer;
+-
+-} UC64CP0State;
+-
+-static UC64CP0State *puv4_timer;
+-
+-uint64_t uc64_cp0_itimer_get_delta(void)
+-{
+-    return (uint64_t)ptimer_get_count(puv4_timer->ptimer);
+-}
+-
+-void uc64_cp0_itimer_set_count(uint64_t value)
+-{
+-    ptimer_set_count(puv4_timer->ptimer, value);
+-    ptimer_run(puv4_timer->ptimer, true);
+-}
+-
+-static void uc64_cp0_itm_tick(void *opaque)
+-{
+-    CPUUniCore64State *env = (CPUUniCore64State *)opaque;
+-
+-    DPRINTF("Itimer hit when counter from 0x%" PRIx64 " to 0x%" PRIx64 "!\n",
+-            env->cp0.c10_itimercr, env->cp0.c10_itimermr);
+-
+-    env->cp0.c10_itimercr = env->cp0.c10_itimermr;
+-    uc64_cp0_intc_irq_raise(env, 2);
+-}
+-
+-void uc64_cp0_itm_init(CPUUniCore64State *env)
+-{
+-    env->cp0.c10_itimercr = 0;
+-    env->cp0.c10_itimermr = 0;
+-
+-    puv4_timer = (UC64CP0State *)g_malloc0(sizeof(UC64CP0State));
+-    puv4_timer->bh = qemu_bh_new(uc64_cp0_itm_tick, env);
+-    puv4_timer->ptimer = ptimer_init(puv4_timer->bh);
+-    ptimer_set_freq(puv4_timer->ptimer, 50 * 1000 * 1000);
+-}
+-
+diff --git a/hw/unicore64/Makefile.objs b/hw/unicore64/Makefile.objs
+index c354e64..33d8c05 100644
+--- a/hw/unicore64/Makefile.objs
++++ b/hw/unicore64/Makefile.objs
+@@ -1,8 +1,6 @@
+ # For UniCore64 machines and boards
+ 
+ # PKUnity-v4 SoC and board information
+-obj-${CONFIG_PUV4} += puv4.o
+-obj-y += puv4_cp0_itm.o
+-obj-y += puv4_cp0_intc.o
+-
+-obj-y := $(addprefix ../,$(obj-y))
++obj-${CONFIG_PUV4} += ../puv4.o
++obj-y += cp0_itm.o
++obj-y += cp0_intc.o
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+new file mode 100644
+index 0000000..f1999eb
+--- /dev/null
++++ b/hw/unicore64/cp0_intc.c
+@@ -0,0 +1,63 @@
++/*
++ * CP0 INTC device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "cpu.h"
++#include "../irq.h"
++
++#define DEBUG_PUV4
++#include "../puv4.h"
++
++static qemu_irq *uc64_cpu_intc;
++
++void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
++{
++    if (irq == 2) {
++        if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
++            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
++            qemu_irq_lower(uc64_cpu_intc[irq]);
++        }
++    }
++}
++
++void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int irq)
++{
++    if (irq == 2)
++        env->cp0.c10_intrtype |= UC64_CP0_INTRTYPE_ITM;
++
++    qemu_irq_raise(uc64_cpu_intc[irq]);
++}
++
++/* Process a change in an external INTC input. */
++static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
++{
++    CPUUniCore64State *env = (CPUUniCore64State *)opaque;
++
++    if (irq != UC64_INTR_ITM) { /* ITIMER */
++        DPRINTF("irq 0x%x, level 0x%x\n", irq, level);
++        abort();
++    } else {
++        irq = UC64_CP0_INTRTYPE_ITM;
++    }
++
++    if (level) {
++        env->cp0.c10_intrtype |= irq;
++        if (!(env->uncached_asr & UC64_CP0_INTRTYPE_ITM)) {
++            cpu_interrupt(env, CPU_INTERRUPT_HARD);
++        }
++    } else {
++        env->cp0.c10_intrtype &= ~irq;
++        cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
++    }
++}
++
++void  uc64_cp0_intc_init(CPUUniCore64State *env)
++{
++    uc64_cpu_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 6);
++}
+diff --git a/hw/unicore64/cp0_itm.c b/hw/unicore64/cp0_itm.c
+new file mode 100644
+index 0000000..4de5dc9
+--- /dev/null
++++ b/hw/unicore64/cp0_itm.c
+@@ -0,0 +1,59 @@
++/*
++ * CP0 ITM device simulation in PKUnity SoC
++ *
++ * Copyright (C) 2012 Guan Xuetao
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation, or any later version.
++ * See the COPYING file in the top-level directory.
++ */
++#include "../ptimer.h"
++#include "../irq.h"
++#include "cpu.h"
++
++#undef DEBUG_PUV4
++#include "../puv4.h"
++
++/* puv4 ostimer implementation. */
++typedef struct {
++    QEMUBH *bh;
++    ptimer_state *ptimer;
++
++} UC64CP0State;
++
++static UC64CP0State *puv4_timer;
++
++uint64_t uc64_cp0_itimer_get_delta(void)
++{
++    return (uint64_t)ptimer_get_count(puv4_timer->ptimer);
++}
++
++void uc64_cp0_itimer_set_count(uint64_t value)
++{
++    ptimer_set_count(puv4_timer->ptimer, value);
++    ptimer_run(puv4_timer->ptimer, true);
++}
++
++static void uc64_cp0_itm_tick(void *opaque)
++{
++    CPUUniCore64State *env = (CPUUniCore64State *)opaque;
++
++    DPRINTF("Itimer hit when counter from 0x%" PRIx64 " to 0x%" PRIx64 "!\n",
++            env->cp0.c10_itimercr, env->cp0.c10_itimermr);
++
++    env->cp0.c10_itimercr = env->cp0.c10_itimermr;
++    uc64_cp0_intc_irq_raise(env, 2);
++}
++
++void uc64_cp0_itm_init(CPUUniCore64State *env)
++{
++    env->cp0.c10_itimercr = 0;
++    env->cp0.c10_itimermr = 0;
++
++    puv4_timer = (UC64CP0State *)g_malloc0(sizeof(UC64CP0State));
++    puv4_timer->bh = qemu_bh_new(uc64_cp0_itm_tick, env);
++    puv4_timer->ptimer = ptimer_init(puv4_timer->bh);
++    ptimer_set_freq(puv4_timer->ptimer, 50 * 1000 * 1000);
++}
++
+-- 
+1.7.9.5
+

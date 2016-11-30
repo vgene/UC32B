@@ -1,0 +1,526 @@
+From a830ab420a434350172bc03badccad8f83901174 Mon Sep 17 00:00:00 2001
+From: Xu Ziyang <1400012978@pku.edu.cn>
+Date: Wed, 30 Nov 2016 03:57:44 +0800
+Subject: [PATCH] work
+
+---
+ Makefile                           |  25 ++++----
+ Makefile.linux                     |  12 ++--
+ TAO.bash_aliases                   |  52 ----------------
+ TAO.gitconfig                      |  24 --------
+ TAO.vimrc.linux                    |  14 -----
+ TAO.vimrc.qemu                     |  17 -----
+ bin/myadduser.sh                   |   8 ---
+ bin/mygit.sh                       |  43 -------------
+ bin/qemu-uc32.sh                   | 123 -------------------------------------
+ docs/README.github                 |  19 ------
+ docs/README.linux                  |  14 -----
+ docs/README.qemu                   |   9 ---
+ initramfs/initramfs_config.busybox |  11 ++--
+ 13 files changed, 27 insertions(+), 344 deletions(-)
+ delete mode 100755 TAO.bash_aliases
+ delete mode 100644 TAO.gitconfig
+ delete mode 100644 TAO.vimrc.linux
+ delete mode 100644 TAO.vimrc.qemu
+ delete mode 100755 bin/myadduser.sh
+ delete mode 100755 bin/mygit.sh
+ delete mode 100755 bin/qemu-uc32.sh
+ delete mode 100644 docs/README.github
+ delete mode 100644 docs/README.linux
+ delete mode 100644 docs/README.qemu
+
+diff --git a/Makefile b/Makefile
+index fdd80b9..72d11af 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,4 +1,4 @@
+-DIR_UNICORE32	:= $(wildcard ~/UniCore32)
++DIR_UNICORE32	:= /home/UC32B/LL1400012978/unicore32
+ DIR_WORKING	:= $(DIR_UNICORE32)/working
+ DIR_GNU_UC	:= /pub/toolchain/uc32/unicore32-linux/
+ 
+@@ -7,7 +7,7 @@ CROSS_LIB	:= $(CROSS_UNICORE32)/unicore32-linux/lib
+ CROSS_COMPILE	:= $(CROSS_UNICORE32)/bin/unicore32-linux-
+ OBJDUMP		:= $(CROSS_COMPILE)objdump
+ 
+-BUSYBOX_TARBALL	:= /pub/backup/busybox-1.20.0.tar.bz2
++BUSYBOX_TARBALL	:= ~/busybox-1.20.0.tar.bz2
+ BUSYBOX_CONFIG	:= $(DIR_UNICORE32)/initramfs/initramfs_busybox_config
+ BUSYBOX_BUILDLOG:= $(DIR_WORKING)/busybox-build.log
+ 
+@@ -16,7 +16,7 @@ QEMU_REPO31	:= $(USER)@192.168.200.31:/pub/git/qemu.git
+ QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
+ QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
+ QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
+-
++QEMU_PATCHES    := $(DIR_UNICORE32)/patches-qemu
+ PATH		:= $(CROSS_UNICORE32)/bin:$(PATH)
+ 
+ all:
+@@ -73,16 +73,19 @@ qemu-new:
+ 	@rm -fr $(DIR_WORKING)/qemu
+ 	@cd $(DIR_WORKING); git clone $(QEMU_GITREPO)
+ 	@cd $(DIR_WORKING)/qemu;				\
+-		git br unicore32;				\
+-		git co unicore32
+-
++		git branch unicore32 0b8db8f;				\
++		git checkout unicore32;	\
++                git am $(QEMU_PATCHES)/*
+ qemu-make:
+ 	@echo "Configure qemu ..."
+-	@cd $(DIR_WORKING)/qemu; ./configure			\
+-		--target-list=$(QEMU_TARGETS)			\
+-		--enable-debug			 		\
+-		--disable-sdl			 		\
+-		--interp-prefix=$(DIR_GNU_UC)			\
++	@cd $(DIR_WORKING)/qemu; ./configure                    \
++                --target-list=$(QEMU_TARGETS)                   \
++                --enable-debug                                  \
++		--disable-werror				\
++		--enable-curses					\
++		--extra-cflags="-D restrict=restricT"		\
++		--disable-sdl                                   \
++                --interp-prefix=$(DIR_GNU_UC)                   \
+ 		--prefix=$(DIR_WORKING)/qemu-unicore32		\
+ 		>> $(QEMU_BUILDLOG) 2>&1
+ 	@echo "Make qemu and make install ..."
+diff --git a/Makefile.linux b/Makefile.linux
+index 65ec6ec..8ba7868 100644
+--- a/Makefile.linux
++++ b/Makefile.linux
+@@ -3,10 +3,11 @@ LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
+ LINUX_REPO_LINUS	:= git@github.com:torvalds/linux.git
+ LINUX_ARCH		:= unicore32
+ LINUX_BUILDLOG		:= $(DIR_WORKING)/linux-build.log
+-# v4.8-rc8
+-LINUX_PATCHES_BASE	:= 08895a8b6b06ed2323cd97a36ee40a116b3db8ed
+-LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux
+-LINUX_DEFCONFIG		:= unicore32_defconfig
++# v3.7-rc4
++LINUX_PATCHES_BASE	:= 29594404d7fe73cd80eaa4ee8c43dcc53970c60e 
++LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux-unhandled
++LINUX_PATCHES_DIR_OLD   := $(DIR_UNICORE32)/patches-linux
++LINUX_DEFCONFIG		:= qemu_defconfig
+ 
+ linux-new:
+ 	@echo "Remove old linux repo ..."
+@@ -19,7 +20,8 @@ linux-new:
+ 	@cd $(DIR_WORKING)/linux;				\
+ 		git branch unicore32 $(LINUX_PATCHES_BASE);	\
+ 		git checkout unicore32;				\
+-		git am $(LINUX_PATCHES_DIR)/*
++		#git am $(LINUX_PATCHES_DIR_OLD)/*		\
++		 git am $(LINUX_PATCHES_DIR)/*
+ 
+ linux-make:
+ 	@echo "Make mrproper ..."
+diff --git a/TAO.bash_aliases b/TAO.bash_aliases
+deleted file mode 100755
+index 063082e..0000000
+--- a/TAO.bash_aliases
++++ /dev/null
+@@ -1,52 +0,0 @@
+-#!/bin/bash
+-
+-WORKING=$HOME/working
+-
+-working_start()
+-{
+-    sudo mount -t tmpfs -o uid=guanxuetao,gid=guanxuetao tmpfs $WORKING
+-}
+-
+-working_linux()
+-{
+-    cd $WORKING
+-    git clone /pub/git/linux-unicore.git
+-    cd $WORKING/linux-unicore
+-    git branch unicore32 origin/unicore32
+-    git branch working origin/working
+-    git branch unicore64 origin/unicore64
+-}
+-
+-working_rsync()
+-{
+-    cd $WORKING/linux-unicore
+-    git push origin
+-    cd $WORKING/qemu
+-    git push origin
+-    rsync -ahz /home/guanxuetao/epip/* 192.168.200.62:/home/guanxuetao/epip
+-    rsync -ahz /pub/initramfs/* 192.168.200.62:/pub/initramfs
+-    rsync -ahz /pub/bin/* 192.168.200.62:/pub/bin
+-    rsync -ahz /pub/git/* 192.168.200.62:/pub/git
+-}
+-
+-working_stop()
+-{
+-    cd $WORKING/linux-unicore
+-    git st
+-    cd $WORKING/qemu
+-    git st
+-    cd $HOME
+-    echo -e "\n    INPUT by yourself: sudo umount $WORKING\n"
+-}
+-
+-export PATH=/pub/toolchain/uc32/bin:/pub/toolchain/uc64/bin:/pub/bin:$PATH
+-export LANG=POSIX
+-
+-alias lynx-1='lynx 192.168.200.1/cgi-bin/openclose.pl'
+-alias uc32='export ARCH=unicore32'
+-alias uc64='export ARCH=unicore64'
+-alias vim-linux='cd ~; ln -sf epip/epip.vimrc.linux .vimrc; cd -'
+-alias vim-qemu='cd ~; ln -sf epip/epip.vimrc.qemu .vimrc; cd -'
+-alias makeuc32='uc32; make defconfig; make -j4'
+-alias makeuc64='uc64; make defconfig; make -j4'
+-alias makeqemu='uc32; make qemu_defconfig; make zImage -j4'
+diff --git a/TAO.gitconfig b/TAO.gitconfig
+deleted file mode 100644
+index 5bf8a3b..0000000
+--- a/TAO.gitconfig
++++ /dev/null
+@@ -1,24 +0,0 @@
+-[user]
+-	name = Guan Xuetao
+-	email = gxt@mprc.pku.edu.cn
+-[color]
+-	diff = auto
+-	status = auto
+-	branch = auto
+-	interactive = auto
+-	ui = true
+-	pager = true
+-[alias]
+-	ci = commit
+-	co = checkout
+-	br = branch
+-	st = status
+-	sh = show
+-	df = diff
+-	dc = diff --cached
+-	di = diff
+-	sb = show-branch
+-	ls = log --oneline
+-	lg = log -p
+-[push]
+-	default = matching
+diff --git a/TAO.vimrc.linux b/TAO.vimrc.linux
+deleted file mode 100644
+index 722166b..0000000
+--- a/TAO.vimrc.linux
++++ /dev/null
+@@ -1,14 +0,0 @@
+-set nocompatible
+-set autoindent
+-set number
+-set showcmd
+-set ruler
+-set hlsearch
+-set incsearch
+-set mouse=a
+-filetype plugin indent on
+-nnoremap <silent> <F10> :TlistToggle<CR>
+-let Tlist_Exit_OnlyWindow = 1
+-let Tlist_Auto_Open = 1
+-
+-colorscheme desert256
+diff --git a/TAO.vimrc.qemu b/TAO.vimrc.qemu
+deleted file mode 100644
+index 09a40ea..0000000
+--- a/TAO.vimrc.qemu
++++ /dev/null
+@@ -1,17 +0,0 @@
+-set nocompatible
+-set autoindent
+-set number
+-set showcmd
+-set ruler
+-set hlsearch
+-set incsearch
+-set shiftwidth=4
+-set expandtab
+-set mouse=a
+-filetype plugin indent on
+-nnoremap <silent> <F8> :TlistToggle<CR>
+-
+-let Tlist_Exit_OnlyWindow = 1
+-let Tlist_Auto_Open = 1
+-
+-colorscheme desert256
+diff --git a/bin/myadduser.sh b/bin/myadduser.sh
+deleted file mode 100755
+index 9d56e8e..0000000
+--- a/bin/myadduser.sh
++++ /dev/null
+@@ -1,8 +0,0 @@
+-#!/bin/sh
+-while read LINE
+-do
+-adduser "$LINE"
+-chmod 750 /home/"$LINE"
+-setquota "$LINE" 10000000 15000000 0 0 -a
+-echo "ok!"
+-done
+diff --git a/bin/mygit.sh b/bin/mygit.sh
+deleted file mode 100755
+index 9b79642..0000000
+--- a/bin/mygit.sh
++++ /dev/null
+@@ -1,43 +0,0 @@
+-#!/bin/bash
+-
+-PATCHDIR=~/patches/
+-PATCHVER=v5             # changed by time
+-
+-usage()
+-{
+-    echo "Usage: (If any error or advice, please contact Guan Xuetao)"
+-    echo
+-    echo "    for git commands:"
+-    echo "        epip-git.sh [format-patch|request-pull|send-email]"
+-    echo
+-}
+-
+-if [ $# == 0 ]; then
+-    usage
+-elif [ $1 == "format-patch" ]; then
+-    git format-patch --thread --cover-letter --subject-prefix=PATCH$PATCHVER    \
+-        --output-directory $PATCHDIR/qemu-uc32-$PATCHVER                        \
+-        --cc=blauwirbel@gmail.com                                               \
+-        --cc=afaerber@suse.de                                                   \
+-        --cc=chenwj@iis.sinica.edu.tw                                           \
+-        master..unicore32
+-    ./scripts/checkpatch.pl $PATCHDIR/qemu-uc32-$PATCHVER/*                     \
+-        > $PATCHDIR/qemu-uc32-$PATCHVER/checkpatch
+-
+-elif [ $1 == "request-pull" ]; then
+-    git request-pull master git://github.com/gxt/QEMU.git unicore32             \
+-        > $PATCHDIR/qemu-uc32-$PATCHVER/request-pull
+-
+-elif [ $1 == "send-email" ]; then
+-    shift
+-    git send-email --from=gxt@mprc.pku.edu.cn                                   \
+-        --to=qemu-devel@nongnu.org                                              \
+-        --subject="[PULL] UniCore32 PUV3 machine support"                       \
+-        --cc=blauwirbel@gmail.com                                               \
+-        --cc=afaerber@suse.de                                                   \
+-        --cc=chenwj@iis.sinica.edu.tw                                           \
+-        --cc=gxt@mprc.pku.edu.cn                                                \
+-        $@
+-else
+-    usage
+-fi
+diff --git a/bin/qemu-uc32.sh b/bin/qemu-uc32.sh
+deleted file mode 100755
+index d95614f..0000000
+--- a/bin/qemu-uc32.sh
++++ /dev/null
+@@ -1,123 +0,0 @@
+-#!/bin/bash
+-
+-usage()
+-{
+-    echo "Usage: (If any error or advice, please contact Guan Xuetao)"
+-    echo
+-    echo "    for compile/build:"
+-    echo "        qemu-uc32.sh [linux-user|softmmu|both]"
+-    echo
+-    echo "    for running:"
+-    echo "        qemu-uc32.sh [fss|test]"
+-    echo
+-    echo "Before begin work, working environment should be in:"
+-    echo "    ~/working/                : your working dir"
+-    echo
+-    echo "And following dirs are created perhaps by this script:"
+-    echo "    ~/working/qemu            : source dir"
+-    echo "    ~/working/qemu-uc32       : build dir"
+-    echo
+-}
+-
+-# Work environment
+-
+-WORK_DIR=~/working
+-LOGFILE=$WORK_DIR/qemu-uc32/build.log
+-INSTALL_PREFIX=$WORK_DIR/qemu-uc32/install
+-
+-compile_qemu()
+-{
+-    echo "make distclean ..."
+-    make distclean > $LOGFILE 2>&1
+-    if [ $? != 0 ]; then
+-        echo "FAIL in cleaning!"
+-        return
+-    fi
+-
+-    echo "configure ..."
+-    ./configure --target-list=$TARGETS --enable-debug                           \
+-	        --interp-prefix=/usr/unicore/gnu-toolchain-unicore/uc32/unicore32-linux/ \
+-		--disable-sdl                                                   \
+-		--prefix=$INSTALL_PREFIX                                        \
+-                >> $LOGFILE 2>&1
+-    if [ $? != 0 ]; then
+-        echo "FAIL in configuring!"
+-        return
+-    fi
+-
+-    echo "make ..."
+-    make -j4 >> $LOGFILE 2>&1
+-    if [ $? != 0 ]; then
+-        echo "FAIL in making!"
+-        return
+-    fi
+-
+-    echo "clean old install directory and make install ..."
+-    make install >> $LOGFILE 2>&1
+-    if [ $? != 0 ]; then
+-        echo "FAIL in installing!"
+-    else
+-        echo "SUCCESS! See $LOGFILE for detail information."
+-    fi
+-}
+-
+-working()
+-{
+-    echo -e "Prepare qemu working environment..."
+-    cd $WORK_DIR
+-    git clone /pub/git/qemu.git
+-    cd $WORKING/qemu
+-    git branch unicore32 origin/unicore32
+-    git branch working origin/working
+-    git co working
+-    make tags
+-
+-    echo -e "Prepare qemu-uc32 directory..."
+-    cd $WORK_DIR
+-    mkdir qemu-uc32
+-    cd qemu-uc32
+-    tar xfj /pub/backup/qemu-unicore32-test-20110318.tar.bz2
+-    ln -s $WORKING/linux-unicore/arch/unicore32/boot/zImage
+-
+-    cd $WORKING/qemu
+-}
+-
+-testing()
+-{
+-    cd $WORK_DIR/qemu-uc32/qemu-unicore32-test
+-    echo "Most Simple Test"
+-    unicore32-linux-gcc helloworld.c -o helloworld
+-    $WORK_DIR/qemu-uc32/install/bin/qemu-unicore32 helloworld
+-
+-    echo "SPEC2000 CINT"
+-    cd runSPEC2000-CINT
+-    ./run_SPEC2000_sim
+-    cd ..
+-
+-    echo "SPEC2000 CFP"
+-    cd runSPEC2000-CFP
+-    ./runspec2000-f-sim.sh
+-    cd ..
+-}
+-
+-if [ $# == 0 ]; then
+-    usage
+-elif [ $1 == "both" ]; then
+-    TARGETS=unicore32-linux-user,unicore32-softmmu
+-    compile_qemu
+-elif [ $1 == "linux-user" ]; then
+-    TARGETS=unicore32-linux-user
+-    compile_qemu
+-elif [ $1 == "softmmu" ]; then
+-    TARGETS=unicore32-softmmu
+-    compile_qemu
+-elif [ $1 == "fss" ]; then
+-    shift
+-    $INSTALL_PREFIX/bin/qemu-system-unicore32 -M puv3 -kernel zImage -m 512     \
+-        -icount auto -append "root=/dev/ram" -curses -D qemu-debug.log $@       \
+-        | tee fss.log
+-elif [ $1 == "test" ]; then
+-    testing
+-else
+-    usage
+-fi
+diff --git a/docs/README.github b/docs/README.github
+deleted file mode 100644
+index 9f8e542..0000000
+--- a/docs/README.github
++++ /dev/null
+@@ -1,19 +0,0 @@
+-
+-github homepage: https://github.com/
+-
+-======================================================================
+-Follow the github help:	Generating an SSH key
+-However, 'Testing your SSH connection' cann't be passed
+-	(ERROR: Connection timed out! WTF! GFW?)
+-Solution:
+-	http://blog.csdn.net/github_33934628/article/details/51812534
+-	http://blog.it985.com/4511.html
+-
+-$ cat ~/.ssh/config
+-host github.com
+-hostname ssh.github.com
+-port 443
+-
+-$ chmod 600 ~/.ssh/config
+-$ ssh -T git@github.com		(NOW IT WORK!)
+-======================================================================
+diff --git a/docs/README.linux b/docs/README.linux
+deleted file mode 100644
+index 82cb50c..0000000
+--- a/docs/README.linux
++++ /dev/null
+@@ -1,14 +0,0 @@
+-
+-linux kernel homepage: https://www.kernel.org/
+-
+-======================================================================
+-To get bare linus kernel: (my favor dir: /pub/git/linux.git)
+-	git clone --bare git@ssh.github.com:torvalds/linux.git
+-	(about 1.7G for 4.7)
+-Official repos:
+-	git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+-          # or: git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+-
+-======================================================================
+-Working with linux-next: https://www.kernel.org/doc/man-pages/linux-next.html
+-
+diff --git a/docs/README.qemu b/docs/README.qemu
+deleted file mode 100644
+index 46e9e09..0000000
+--- a/docs/README.qemu
++++ /dev/null
+@@ -1,9 +0,0 @@
+-
+-qemu homepage: http://wiki.qemu.org/
+-
+-How to download: http://wiki.qemu.org/Download
+-
+-Yes, I need bare qemu repo: (my favor dir: /pub/git/qemu.git)
+-	git clone --bare git://git.qemu-project.org/qemu.git
+-	(about 100MB)
+-
+diff --git a/initramfs/initramfs_config.busybox b/initramfs/initramfs_config.busybox
+index 1e2aaaa..0d2ee5b 100644
+--- a/initramfs/initramfs_config.busybox
++++ b/initramfs/initramfs_config.busybox
+@@ -27,12 +27,13 @@ nod /dev/mem		666 0 0 c 1 1
+ 
+ slink /dev/fb		/dev/fb0 777 0 0
+ 
+-file /etc/fstab		etc/fstab	755 0 0
+-file /etc/inittab	etc/inittab	755 0 0
+-file /etc/passwd	etc/passwd	755 0 0
+-#file /etc/sysinit	etc/sysinit	755 0 0
++file /etc/fstab		../../etc/fstab	755 0 0
++file /etc/inittab	../../etc/inittab	755 0 0
++file /etc/passwd	../../etc/passwd	755 0 0
++file /etc/helloworld    ../../etc/helloworld        755 0 0
++#file /etc/sysinit	../../etc/sysinit	755 0 0
+ 
+-file /bin/busybox	working/busybox-1.20.0/_install/bin/busybox 755 0 0
++file /bin/busybox	../busybox/_install/bin/busybox 755 0 0
+ 
+ slink /linuxrc		/bin/busybox 777 0 0
+ slink /init		/bin/busybox 777 0 0
+-- 
+2.7.4
+

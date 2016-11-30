@@ -1,0 +1,29 @@
+From e1d2fc6234b656e86e9142f5599538b8dbb9697e Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Mon, 8 Oct 2012 08:48:31 +0800
+Subject: [PATCH 185/247] unicore64: Call tcg_gen_debug_insn_start
+
+Signed-off-by: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 54f82a5..3fe0453 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1411,6 +1411,11 @@ static void disas_uc64_insn(CPUUniCore64State *env, DisasContext *s)
+ {
+     unsigned int insn;
+ 
++    if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP |
++                    CPU_LOG_TB_OP_OPT))) {
++        tcg_gen_debug_insn_start(s->dc_pc);
++    }
++
+     insn = ldl_code(s->dc_pc);
+ 
+     /* UniCore64 instructions class:
+-- 
+1.7.9.5
+

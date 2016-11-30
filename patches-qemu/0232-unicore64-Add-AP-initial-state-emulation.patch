@@ -1,0 +1,86 @@
+From eb03805556351b2e88dfa4c3a82bd83e8d871662 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 17:14:45 +0800
+Subject: [PATCH 232/247] unicore64: Add AP initial state emulation
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ cpu-exec.c                 |    6 ++++++
+ target-unicore64/cpu.h     |    5 +++--
+ target-unicore64/softmmu.c |   24 ++++++++++++++++++++++++
+ 3 files changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index d5fcf45..7efde85 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -466,6 +466,12 @@ int cpu_exec(CPUArchState *env)
+                         do_interrupt(env);
+                         next_tb = 0;
+                     }
++                    if (interrupt_request & CPU_INTERRUPT_SMP
++                        && !(env->uncached_asr & ASR_INTR_SELECT)) {
++                        env->exception_index = UC64_INTR_IPI;
++                        do_interrupt(env);
++                        next_tb = 0;
++                    }
+ #elif defined(TARGET_SH4)
+                     if (interrupt_request & CPU_INTERRUPT_HARD) {
+                         do_interrupt(env);
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 6eec413..d507b7e 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -185,8 +185,9 @@ static inline void cpu_get_tb_cpu_state(CPUUniCore64State *env,
+ 
+ static inline bool cpu_has_work(CPUUniCore64State *env)
+ {
+-    return env->interrupt_request &
+-        (CPU_INTERRUPT_HARD | CPU_INTERRUPT_EXITTB);
++    return env->interrupt_request & (CPU_INTERRUPT_HARD
++                                   | CPU_INTERRUPT_SMP
++                                   | CPU_INTERRUPT_EXITTB);
+ }
+ 
+ /* Hardware interrupts */
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 3348e8f..922cb3b 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -103,9 +103,33 @@ void switch_mode(CPUUniCore64State *env, int mode)
+     }
+ }
+ 
++static void special_ipi_handler(CPUUniCore64State *env)
++{
++    switch_mode(env, ASR_MODE_PRIV);
++    env->bsr = env->uncached_asr;
++    env->bfr = AFR_READ(env);
++    env->uncached_asr = (env->uncached_asr & ~ASR_MODE_SELECT) | ASR_MODE_PRIV;
++    env->uncached_asr |= ASR_INTR_SELECT;
++    /* the PC already points to the proper instruction. */
++    env->cp0.c4_epc = env->regs[31];
++    env->regs[31] = share_io_reg;
++    env->interrupt_request |= CPU_INTERRUPT_EXITTB;
++}
++
+ void do_interrupt(CPUUniCore64State *env)
+ {
++    static int ipi_flag;
+     switch (env->exception_index) {
++    case UC64_INTR_IPI:
++        {
++            if (ipi_flag) {
++                break;
++            } else {
++                ipi_flag = 1;
++                special_ipi_handler(env);
++                return;
++            }
++        }
+     case UC64_EXCP_ITRAP:
+         trace_uc64_do_interrupt("ITRAP", env->uncached_asr);
+         break;
+-- 
+1.7.9.5
+

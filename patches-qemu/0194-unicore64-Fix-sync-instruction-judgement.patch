@@ -1,0 +1,40 @@
+From 29e88310420d92012ce8ffd1de078111fd2f273c Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 25 Dec 2012 15:45:00 +0800
+Subject: [PATCH 194/247] unicore64: Fix sync instruction judgement
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 9645574..481fe0e 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -92,7 +92,6 @@ void uc64_translate_init(void)
+ #define UCOP_CPNUM              (((insn) >> 21) & 0xf)
+ #define UCOP_LDST_BHD           (((insn) >> 22) & 0x7)
+ #define UCOP_CMOV_COND          (((insn) >> 12) & 0xf)
+-#define UCOP_SYNC               (((insn) >> 27) & 0x1)
+ 
+ #define UCOP_SET(i)             ((insn) & (1 << (i)))
+ 
+@@ -917,11 +916,11 @@ static void do_ldst(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     TCGv_i64 t_addr, t_op2_64, t_rd_64;
+ 
+     if (!UCOP_LDST_BHD) {
+-        if (UCOP_SYNC) {
+-            /* sync */
++        if (insn == 0x68000000) {
++            /* FIXME: SYNC instruction */
+             return;
+         }
+-        ILLEGAL_INSN(1); /* prefetch */
++        ILLEGAL_INSN(true); /* prefetch? */
+     }
+ 
+     t_addr = tcg_temp_new_i64();
+-- 
+1.7.9.5
+

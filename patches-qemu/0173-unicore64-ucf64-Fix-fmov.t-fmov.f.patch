@@ -1,0 +1,108 @@
+From 8e4bba251484c6be15ba48cb6d9123c530802b80 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Sun, 19 Aug 2012 00:33:53 +0800
+Subject: [PATCH 173/247] unicore64-ucf64: Fix fmov.t fmov.f
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.h       |    6 +++---
+ target-unicore64/ucf64_helper.c |   15 +++++++++------
+ target-unicore64/ucf64_trans.h  |   12 ++++++------
+ 3 files changed, 18 insertions(+), 15 deletions(-)
+
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 4c7fc49..869a3ff 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -37,9 +37,9 @@ DEF_HELPER_2(ucf64_set_fpsr, void, env, i64)
+ DEF_HELPER_1(ucf64_get_fpfr, i64, env)
+ DEF_HELPER_2(ucf64_set_fpfr, void, env, i64)
+ 
+-DEF_HELPER_4(ucf64_movts, void, f32, f32, i32, env)
+-DEF_HELPER_4(ucf64_movtd, void, f64, f64, i32, env)
+-DEF_HELPER_4(ucf64_movtw, void, f32, f32, i32, env)
++DEF_HELPER_4(ucf64_movts, f32, f32, f32, i32, env)
++DEF_HELPER_4(ucf64_movtd, f64, f64, f64, i32, env)
++DEF_HELPER_4(ucf64_movtw, f64, f64, f64, i32, env)
+ 
+ DEF_HELPER_3(ucf64_adds, f32, f32, f32, env)
+ DEF_HELPER_3(ucf64_addd, f64, f64, f64, env)
+diff --git a/target-unicore64/ucf64_helper.c b/target-unicore64/ucf64_helper.c
+index ee05c5f..fb8db16 100644
+--- a/target-unicore64/ucf64_helper.c
++++ b/target-unicore64/ucf64_helper.c
+@@ -196,31 +196,34 @@ float64 HELPER(ucf64_absd)(float64 a)
+     return float64_abs(a);
+ }
+ 
+-void HELPER(ucf64_movts)(float32 a, float32 b, uint32_t cond,
++float32 HELPER(ucf64_movts)(float32 a, float32 b, uint32_t cond,
+                          CPUUniCore64State *env)
+ {
+     if (((env->ucf64.fpfr & 0x2) && cond) ||
+         (!(env->ucf64.fpfr & 0x2) && (!cond))) {
+-        a = b;
++        return b;
+     }
++    return a;
+ }
+ 
+-void HELPER(ucf64_movtd)(float64 a, float64 b, uint32_t cond,
++float64 HELPER(ucf64_movtd)(float64 a, float64 b, uint32_t cond,
+                          CPUUniCore64State *env)
+ {
+     if (((env->ucf64.fpfr & 0x2) && cond) ||
+         (!(env->ucf64.fpfr & 0x2) && (!cond))) {
+-        a = b;
++        return b;
+     }
++    return a;
+ }
+ 
+-void HELPER(ucf64_movtw)(float32 a, float32 b, uint32_t cond,
++float64 HELPER(ucf64_movtw)(float64 a, float64 b, uint32_t cond,
+                          CPUUniCore64State *env)
+ {
+     if (((env->ucf64.fpfr & 0x2) && cond) ||
+         (!(env->ucf64.fpfr & 0x2) && (!cond))) {
+-        a = b;
++        return b;
+     }
++    return a;
+ }
+ 
+ void HELPER(ucf64_cmps)(float32 a, float32 b, uint32_t c,
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index acc6fef..b6efbd5 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -288,20 +288,20 @@ static void do_ucf64_datap(CPUUniCore64State *env, DisasContext *s,
+         case 0 /* s */:
+             tcg_gen_ld_i32(t_F0s, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
+             tcg_gen_ld_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+-            gen_helper_ucf64_movts(t_F1s, t_F0s, t_cond, cpu_env);
++            gen_helper_ucf64_movts(t_F1s, t_F1s, t_F0s, t_cond, cpu_env);
+             tcg_gen_st_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+             break;
+         case 1 /* d */:
+             tcg_gen_ld_i64(t_F0d, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
+             tcg_gen_ld_i64(t_F1d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+-            gen_helper_ucf64_movtd(t_F1d, t_F0d, t_cond, cpu_env);
++            gen_helper_ucf64_movtd(t_F1d, t_F1d, t_F0d, t_cond, cpu_env);
+             tcg_gen_st_i64(t_F1d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+             break;
+         case 2 /* w */:
+-            tcg_gen_ld_i32(t_F0s, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
+-            tcg_gen_ld_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+-            gen_helper_ucf64_movtw(t_F1s, t_F0s, t_cond, cpu_env);
+-            tcg_gen_st_i32(t_F1s, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            tcg_gen_ld_i64(t_F0d, cpu_env, ucf64_reg_offset(UCOP_REG_S2));
++            tcg_gen_ld_i64(t_F1d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
++            gen_helper_ucf64_movtw(t_F1d, t_F1d, t_F0d, t_cond, cpu_env);
++            tcg_gen_st_i64(t_F1d, cpu_env, ucf64_reg_offset(UCOP_REG_D));
+             break;
+         default:
+             ILLEGAL_INSN(true);
+-- 
+1.7.9.5
+

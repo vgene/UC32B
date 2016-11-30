@@ -1,0 +1,50 @@
+From 4797e70f3ad0b949d881b93b7c2d079857749b6b Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Thu, 11 Oct 2012 11:09:10 +0800
+Subject: [PATCH 189/247] unicore64-softmmu: Add third page U/S check
+
+Signed-off-by: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 46a006a..1e141d0 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -29,6 +29,7 @@
+ #define UC64_PAGETABLE_WRITE       (1 << 6)
+ #define UC64_PAGETABLE_EXEC        (1 << 5)
+ #define UC64_PAGETABLE_EXIST       (1 << 2)
++#define UC64_PAGETABLE_USER        (1 << 1)
+ 
+ #define MMUSUFFIX _mmu
+ 
+@@ -154,6 +155,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+         }
+         phys_addr = (desc & 0xfffe00000ULL) | (address & 0x1fffff);
+         *page_size = SUPERPAGE_SIZE;
++        /* FIXME: superpage needs U/S check */
+         break;
+     case 0:
+         /* Lookup l3 entry.  */
+@@ -176,6 +178,16 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+         }
+         phys_addr = (desc & 0xffffff000ULL) | (address & 0xfff);
+         *page_size = TARGET_PAGE_SIZE;
++
++        if (is_user && !(desc & UC64_PAGETABLE_USER)) {
++            if (access_type == 2) {
++                code = 0x7;/* itrap */
++            } else {
++                code = 0x8;/* dtrap */
++            }
++            goto do_fault;
++        }
++
+         break;
+     default:
+         cpu_abort(env, "wrong page type!");
+-- 
+1.7.9.5
+

@@ -1,0 +1,33 @@
+From c3d8023129786387caaa2394aa4c3c1a9c08e348 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 15:35:50 +0800
+Subject: [PATCH 089/247] unicore64: NO mov.a dmov.a not.a dnot.a in UniCore64
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index d3ef8f2..3229cbe 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -533,6 +533,7 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         break;
+     case 0x0d: /* insn MOV DMOV */
+         ILLEGAL_INSN(UCOP_REG_S1);
++        ILLEGAL_INSN(UCOP_SET(23)); /* S bit, NO mov.a/dmov.a in UniCore64 */
+         /* Just write the result */
+         break;
+     case 0x0e: /* insn andn dandn */
+@@ -545,6 +546,7 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+         break;
+     case 0x0f: /* insn NOT DNOT */
+         ILLEGAL_INSN(UCOP_REG_S1);
++        ILLEGAL_INSN(UCOP_SET(23)); /* S bit, NO not.a/dnot.a in UniCore64 */
+ 
+         if (UCOP_SET(22)) { /* insn DNOT */
+             tcg_gen_not_i64(t_op2_64, t_op2_64);
+-- 
+1.7.9.5
+

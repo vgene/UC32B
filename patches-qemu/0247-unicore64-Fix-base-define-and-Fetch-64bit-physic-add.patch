@@ -1,0 +1,97 @@
+From 9c34bef618b8ee91518cc74a747d85bc8c9d0de9 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Thu, 22 Jan 2015 17:09:55 +0800
+Subject: [PATCH 247/247] unicore64: Fix base define and Fetch 64bit physic
+ address
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/puv4.h                  |   10 +++++-----
+ target-unicore64/softmmu.c |   29 +++++------------------------
+ 2 files changed, 10 insertions(+), 29 deletions(-)
+
+diff --git a/hw/puv4.h b/hw/puv4.h
+index dd84068..9d8fedb 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -11,11 +11,11 @@
+ #define PUV4_REGS_OFFSET        (0x1000) /* 4K is reasonable */
+ #define PUV4_IRQS_NR            (32)
+ #define PUV4_IRQS_PS2_KBD       (22)
+-#define PUV4_INTC_BASE          (0xee600000)
+-#define PUV4_PS2_BASE           (0xef100000)
+-#define UC64_CSR_BASE           (0xc1680000)
+-#define UC64_IO_CTL_BASE        (0xff6100000ULL) /* FAKE */
+-#define UC64_OST_BASE           (0xfee800000ULL) /* FAKE */
++#define PUV4_INTC_BASE          (0xfee600000ULL)
++#define PUV4_PS2_BASE           (0xfef100000ULL)
++#define UC64_CSR_BASE           (0xff6200000ULL)
++#define UC64_IO_CTL_BASE        (0xff6100000ULL)
++#define UC64_OST_BASE           (0xfee800000ULL)
+ 
+ extern qemu_irq *uc64_cpu0_intc;
+ extern qemu_irq *uc64_cpu1_intc;
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 56b50b2..5dc0ab9 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -178,7 +178,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+     /* Lookup l1 descriptor.  */
+     table = env->cp0.c2_base & 0xffffff000ULL;
+     table |= (address >> 27) & 0xff8;
+-    desc = ldl_phys(table);
++    desc = ldq_phys(table);
+     code = 0;
+     if (!(desc & UC64_PAGETABLE_EXIST)) {
+         code = 0x02; /* second pagetable miss */
+@@ -187,7 +187,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+ 
+     /* Lookup l2 descriptor.  */
+     table = (desc & 0xffffff000ULL) | ((address >> 18) & 0xff8);
+-    desc = ldl_phys(table);
++    desc = ldq_phys(table);
+     switch (desc & 1) {
+     case 1:
+         /* Superpage  */
+@@ -206,7 +206,7 @@ static int get_phys_addr(CPUUniCore64State *env, target_ulong address,
+             goto do_fault;
+         }
+         table = (desc & 0xffffff000ULL) | ((address >> 9) & 0xff8);
+-        desc = ldl_phys(table);
++        desc = ldq_phys(table);
+         /* 4k page.  */
+         if (!(desc & UC64_PAGETABLE_EXIST)) {
+             code = 0x04; /* page miss */
+@@ -291,27 +291,8 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+         page_size = TARGET_PAGE_SIZE;
+         ret = 0;
+     } else {
+-        if (address == 0xfffffffff6100000ULL) {
+-            phys_addr = 0xff6100000;
+-            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+-            page_size = TARGET_PAGE_SIZE;
+-            ret = 0;
+-        } else if ((address & 0xffffffffee800000ULL)
+-                == 0xffffffffee800000ULL) {
+-            phys_addr = address & 0x0000000fffffffffULL;
+-            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+-            page_size = TARGET_PAGE_SIZE;
+-            ret = 0;
+-        } else if ((address & 0xffffffffc1680000ULL)
+-                == 0xffffffffc1680000ULL) {
+-            phys_addr = address & 0x00000000c1680000;
+-            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+-            page_size = TARGET_PAGE_SIZE;
+-            ret = 0;
+-        } else {
+-            ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
+-                    &prot, &page_size);
+-        }
++        ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
++                &prot, &page_size);
+     }
+ 
+     if (ret == 0) {
+-- 
+1.7.9.5
+

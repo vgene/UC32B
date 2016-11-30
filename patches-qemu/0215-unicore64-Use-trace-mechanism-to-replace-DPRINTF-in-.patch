@@ -1,0 +1,55 @@
+From 9a8ea647cdf06908486125ceeef5afe9f541b23e Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 20:27:27 +0800
+Subject: [PATCH 215/247] unicore64: Use trace mechanism to replace DPRINTF in
+ cp0_itm
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/unicore64/cp0_itm.c |    7 ++-----
+ trace-events           |    1 +
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/hw/unicore64/cp0_itm.c b/hw/unicore64/cp0_itm.c
+index 9082a80..8a7f3f4 100644
+--- a/hw/unicore64/cp0_itm.c
++++ b/hw/unicore64/cp0_itm.c
+@@ -9,12 +9,10 @@
+  * See the COPYING file in the top-level directory.
+  */
+ #include "cpu.h"
++#include "trace.h"
+ #include "../ptimer.h"
+ #include "../irq.h"
+ 
+-#undef DEBUG_PUV4
+-#include "../puv4.h"
+-
+ /* UniCore64 itimer implementation. */
+ typedef struct {
+     QEMUBH *bh;
+@@ -38,8 +36,7 @@ static void uc64_cp0_itm_tick(void *opaque)
+ {
+     CPUUniCore64State *env = (CPUUniCore64State *)opaque;
+ 
+-    DPRINTF("Itimer hit when counter from 0x%" PRIx64 " to 0x%" PRIx64 "!\n",
+-            env->cp0.c10_itimercr, env->cp0.c10_itimermr);
++    trace_uc64_cp0_itm_tick(env->cp0.c10_itimercr, env->cp0.c10_itimermr);
+ 
+     env->cp0.c10_itimercr = env->cp0.c10_itimermr;
+     uc64_cp0_intc_irq_raise(env, 2);
+diff --git a/trace-events b/trace-events
+index 9a0b48c..3a35f9e 100644
+--- a/trace-events
++++ b/trace-events
+@@ -897,6 +897,7 @@ uc64_guestos_output(const char *str) ": %s"
+ uc64_mmu_tlb_ops(const char *str) ": %s"
+ uc64_mmu_cache_ops(const char *str) ": %s"
+ uc64_intc_cpu_handler(int irq, int level) ": irq 0x%x, level 0x%x"
++uc64_cp0_itm_tick(uint64_t cr, uint64_t mr) ": itimer hit when counter from 0x%" PRIx64 " to 0x%" PRIx64
+ 
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+-- 
+1.7.9.5
+

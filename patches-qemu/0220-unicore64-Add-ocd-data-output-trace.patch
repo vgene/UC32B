@@ -1,0 +1,38 @@
+From 516bb9b7d53e74ab7b3fcc424fadaa1159a278d0 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Thu, 10 Jan 2013 17:00:13 +0800
+Subject: [PATCH 220/247] unicore64: Add ocd data output trace
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    1 +
+ trace-events              |    1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 2e72d39..3e6be1f 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -97,6 +97,7 @@ void helper_ocd_output(void)
+         putc_on_screen((unsigned char)env->cp0.c12_sysu[7]);
+     } else { /* 0 */
+         printf("\n--%16" PRIx64 "--", env->cp0.c12_sysu[7]);
++        trace_uc64_guestos_output2(env->cp0.c12_sysu[7]);
+     }
+     fflush(NULL);
+ }
+diff --git a/trace-events b/trace-events
+index 3a35f9e..a30c557 100644
+--- a/trace-events
++++ b/trace-events
+@@ -894,6 +894,7 @@ uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRI
+ uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va %16." PRIx64 " desc %16." PRIx64 " code %d is_user %d"
+ # target-unicore64/helper.c
+ uc64_guestos_output(const char *str) ": %s"
++uc64_guestos_output2(uint64_t val) ": --%16" PRIx64 "--"
+ uc64_mmu_tlb_ops(const char *str) ": %s"
+ uc64_mmu_cache_ops(const char *str) ": %s"
+ uc64_intc_cpu_handler(int irq, int level) ": irq 0x%x, level 0x%x"
+-- 
+1.7.9.5
+

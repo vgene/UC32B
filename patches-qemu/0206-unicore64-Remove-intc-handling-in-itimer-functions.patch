@@ -1,0 +1,126 @@
+From a52ce6c6eaaac971fdb2ea8cf26bb40f11ea70b5 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 2 Jan 2013 19:15:57 +0800
+Subject: [PATCH 206/247] unicore64: Remove intc handling in itimer functions
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ hw/puv4.h                 |    1 -
+ hw/puv4_cp0_intc.c        |   17 +++++++++++++++++
+ hw/puv4_cp0_itm.c         |   10 +---------
+ target-unicore64/cpu.h    |    3 +++
+ target-unicore64/helper.c |    4 +++-
+ 5 files changed, 24 insertions(+), 11 deletions(-)
+
+diff --git a/hw/puv4.h b/hw/puv4.h
+index dafcd96..4eeeca0 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -24,7 +24,6 @@
+ #define UC64_CP0_INTC_BASE      (0xf10000000ULL) /* FAKE */
+ #define UC64_CP0_ITM_BASE       (0xf20000000ULL) /* FAKE */
+ 
+-qemu_irq *cpu_intc;
+ /* puv4_cp0_intc.c */
+ void uc64_cp0_intc_init(CPUUniCore64State *env);
+ /* puv4_cp0_itm.c */
+diff --git a/hw/puv4_cp0_intc.c b/hw/puv4_cp0_intc.c
+index 2e5ee5f..40157e3 100644
+--- a/hw/puv4_cp0_intc.c
++++ b/hw/puv4_cp0_intc.c
+@@ -14,6 +14,23 @@
+ #define DEBUG_PUV4
+ #include "puv4.h"
+ 
++static qemu_irq *cpu_intc;
++
++void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
++{
++    if (irq == 2) {
++        if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
++            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
++            qemu_irq_lower(cpu_intc[irq]);
++        }
++    }
++}
++
++void uc64_cp0_intc_irq_raise(int irq)
++{
++    qemu_irq_raise(cpu_intc[irq]);
++}
++
+ /* Process a change in an external INTC input. */
+ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+ {
+diff --git a/hw/puv4_cp0_itm.c b/hw/puv4_cp0_itm.c
+index 94f67ba..28a2d57 100644
+--- a/hw/puv4_cp0_itm.c
++++ b/hw/puv4_cp0_itm.c
+@@ -18,7 +18,6 @@
+ /* puv4 ostimer implementation. */
+ typedef struct {
+     QEMUBH *bh;
+-    qemu_irq irq_itimer;
+     ptimer_state *ptimer;
+ 
+ } UC64CP0State;
+@@ -33,12 +32,6 @@ uint64_t uc64_cp0_itimer_get_delta(void)
+ void uc64_cp0_itm_write(CPUUniCore64State *env, uint64_t imm, uint64_t value)
+ {
+     switch (imm) {
+-    case 0: /* Interrupt type */
+-        if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
+-            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
+-            qemu_irq_lower(puv4_timer->irq_itimer);
+-        }
+-        break;
+     case 10: /* Match Register */
+         env->cp0.c10_itimermr = value;
+         if (env->cp0.c10_itimermr > env->cp0.c10_itimercr) {
+@@ -64,7 +57,7 @@ static void uc64_cp0_itm_tick(void *opaque)
+ 
+     env->cp0.c10_itimercr = env->cp0.c10_itimermr;
+     env->cp0.c10_intrtype |= UC64_CP0_INTRTYPE_ITM;
+-    qemu_irq_raise(puv4_timer->irq_itimer);
++    uc64_cp0_intc_irq_raise(2);
+ }
+ 
+ void uc64_cp0_itm_init(CPUUniCore64State *env)
+@@ -73,7 +66,6 @@ void uc64_cp0_itm_init(CPUUniCore64State *env)
+     env->cp0.c10_itimermr = 0;
+ 
+     puv4_timer = (UC64CP0State *)g_malloc0(sizeof(UC64CP0State));
+-    puv4_timer->irq_itimer = cpu_intc[2];
+     puv4_timer->bh = qemu_bh_new(uc64_cp0_itm_tick, env);
+     puv4_timer->ptimer = ptimer_init(puv4_timer->bh);
+     ptimer_set_freq(puv4_timer->ptimer, 50 * 1000 * 1000);
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index dcffa95..8f5aeb3 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -179,4 +179,7 @@ static inline bool cpu_has_work(CPUUniCore64State *env)
+ uint64_t uc64_cp0_itimer_get_delta(void);
+ void uc64_cp0_itm_write(CPUUniCore64State *env, uint64_t imm, uint64_t value);
+ 
++void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int);
++void uc64_cp0_intc_irq_raise(int);
++
+ #endif /* QEMU_UNICORE64_CPU_H */
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 7b6f3f4..db56ba1 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -429,7 +429,9 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+         break;
+     case 10:
+         switch (cop) {
+-        case 0:
++        case 0: /* Interrupt type */
++            uc64_cp0_intc_irq_lower(env, 2);
++            break;
+         case 10:
+             uc64_cp0_itm_write(env, cop, val);
+             break;
+-- 
+1.7.9.5
+

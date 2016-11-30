@@ -1,0 +1,55 @@
+From a0a36a603565c8395ce28f5b68a628956c352373 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 15:39:50 +0800
+Subject: [PATCH 090/247] unicore64: Add cmpand.a cmpxor.a instructions
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/translate.c |   24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 3229cbe..0e38535 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -503,6 +503,28 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+             }
+         }
+         break;
++    case 0x08: /* insn CMPAND DCMPAND */
++        ILLEGAL_INSN(!UCOP_SET(23)); /* S bit */
++        ILLEGAL_INSN(UCOP_REG_D);
++
++        if (UCOP_SET(22)) { /* insn DCMPAND */
++            tcg_gen_and_i64(t_op2_64, t_op1_64, t_op2_64);
++        } else { /* insn CMPAND */
++            tcg_gen_and_i32(t_op2_32, t_op1_32, t_op2_32);
++        }
++        logic_flag = true;
++        break;
++    case 0x09: /* insn CMPXOR DCMPXOR */
++        ILLEGAL_INSN(!UCOP_SET(23)); /* S bit */
++        ILLEGAL_INSN(UCOP_REG_D);
++
++        if (UCOP_SET(22)) { /* insn DCMPXOR */
++            tcg_gen_xor_i64(t_op2_64, t_op1_64, t_op2_64);
++        } else { /* insn XOR */
++            tcg_gen_xor_i32(t_op2_32, t_op1_32, t_op2_32);
++        }
++        logic_flag = true;
++        break;
+     case 0x0a: /* insn CMPSUB.A DCMPSUB.A */
+         ILLEGAL_INSN(!UCOP_SET(23)); /* S bit */
+         ILLEGAL_INSN(UCOP_REG_D);
+@@ -559,7 +581,7 @@ static void do_datap(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+     }
+ 
+     /* Write result */
+-    if ((UCOP_OPCODE != 0x0a) && (UCOP_OPCODE != 0x0b)) {
++    if ((UCOP_OPCODE & 0xc) != 0x8) {
+         if (UCOP_SET(22)) { /* Double word */
+             tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_op2_64);
+         } else { /* Word */
+-- 
+1.7.9.5
+

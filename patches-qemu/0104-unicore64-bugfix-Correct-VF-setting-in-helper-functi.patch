@@ -1,0 +1,54 @@
+From 7c0b6e07d641c3989e2c1cab975b1cd821c1b7ba Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 13 Aug 2012 19:35:04 +0800
+Subject: [PATCH 104/247] unicore64-bugfix: Correct VF setting in helper
+ functions
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 9177e9d..e14a29b 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -100,7 +100,7 @@ uint32_t HELPER(sub_cc_i32)(uint32_t a, uint32_t b)
+     result = a - b;
+     env->NF = env->ZF = (int32_t)result;
+     env->CF = a >= b;
+-    env->VF = ((a ^ b) & (a ^ result)) >> 31;
++    env->VF = ((a ^ b) & (a ^ result));
+     return result;
+ }
+ 
+@@ -110,7 +110,7 @@ uint64_t HELPER(sub_cc_i64)(uint64_t a, uint64_t b)
+     result = a - b;
+     env->NF = env->ZF = result;
+     env->CF = a >= b;
+-    env->VF = ((a ^ b) & (a ^ result)) >> 63;
++    env->VF = ((a ^ b) & (a ^ result));
+     return result;
+ }
+ 
+@@ -144,7 +144,7 @@ uint32_t HELPER(sbc_cc_i32)(uint32_t a, uint32_t b)
+         result = a - b;
+         env->CF = a >= b;
+     }
+-    env->VF = ((a ^ b) & (a ^ result)) >> 31;
++    env->VF = ((a ^ b) & (a ^ result));
+     env->NF = env->ZF = (int32_t)result;
+     return result;
+ }
+@@ -159,7 +159,7 @@ uint64_t HELPER(sbc_cc_i64)(uint64_t a, uint64_t b)
+         result = a - b;
+         env->CF = a >= b;
+     }
+-    env->VF = ((a ^ b) & (a ^ result)) >> 63;
++    env->VF = ((a ^ b) & (a ^ result));
+     env->NF = env->ZF = result;
+     return result;
+ }
+-- 
+1.7.9.5
+

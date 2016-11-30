@@ -1,0 +1,42 @@
+From 267a046a2b6007b1c9bf2c7bf096a5b56c257049 Mon Sep 17 00:00:00 2001
+From: Tianbao Song <songtianbao@mprc.pku.edu.cn>
+Date: Sat, 18 Aug 2012 19:52:38 +0800
+Subject: [PATCH 170/247] unicore64: Modified ucf64 fcmp
+
+Signed-off-by: Song Tianbao <songtianbao@mprc.pku.edu.cn>
+---
+ target-unicore64/ucf64_trans.h |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/ucf64_trans.h b/target-unicore64/ucf64_trans.h
+index 498b504..77eec2f 100644
+--- a/target-unicore64/ucf64_trans.h
++++ b/target-unicore64/ucf64_trans.h
+@@ -141,12 +141,14 @@ static void do_ucf64_fcmp(CPUUniCore64State *env, DisasContext *s,
+     TCGv_i32 t_F1s;
+     TCGv_i64 t_F1d;
+ 
++    TCGv_i32 cond;
++
+     t_F0s = tcg_temp_new_i32();
+     t_F0d = tcg_temp_new_i64();
+     t_F1s = tcg_temp_new_i32();
+     t_F1d = tcg_temp_new_i64();
+ 
+-    TCGv_i32 cond;
++    cond = tcg_temp_new_i32();
+ 
+     ILLEGAL_INSN(UCOP_SET(26));
+ 
+@@ -165,6 +167,8 @@ static void do_ucf64_fcmp(CPUUniCore64State *env, DisasContext *s,
+     tcg_temp_free_i64(t_F0d);
+     tcg_temp_free_i32(t_F1s);
+     tcg_temp_free_i64(t_F1d);
++
++    tcg_temp_free_i32(cond);
+ }
+ 
+ #define UCF64_OP1(name)    do {                           \
+-- 
+1.7.9.5
+

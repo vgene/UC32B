@@ -1,0 +1,27 @@
+From 845a2523337d714030ddab7c33b3dc1c27a547b6 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Mon, 6 Aug 2012 19:49:22 +0800
+Subject: [PATCH 022/247] unicore64: Adjust EM_UNICORE64 value to match
+ toolchain
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ elf.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/elf.h b/elf.h
+index d269654..706b579 100644
+--- a/elf.h
++++ b/elf.h
+@@ -109,7 +109,7 @@ typedef int64_t  Elf64_Sxword;
+ #define EM_OPENRISC     92        /* OpenCores OpenRISC */
+ 
+ #define EM_UNICORE32    110     /* UniCore32 */
+-#define EM_UNICORE64    110     /* UniCore64, FIXME lator */
++#define EM_UNICORE64    200     /* UniCore64, FIXME lator */
+ 
+ /*
+  * This is an interim value that we will use until the committee comes
+-- 
+1.7.9.5
+

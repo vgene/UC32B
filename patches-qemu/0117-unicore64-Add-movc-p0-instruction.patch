@@ -1,0 +1,115 @@
+From 78f358dd4eefd96185ce69df96be6004ec5219cc Mon Sep 17 00:00:00 2001
+From: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+Date: Tue, 14 Aug 2012 22:22:43 +0800
+Subject: [PATCH 117/247] unicore64: Add movc p0 instruction
+
+Signed-off-by: Liu Guoli <liuguoli@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.h       |    2 ++
+ target-unicore64/helper.c    |   48 ++++++++++++++++++++++++++++++++++++++++++
+ target-unicore64/helper.h    |    1 +
+ target-unicore64/translate.c |    4 +++-
+ 4 files changed, 54 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index b62cc8b..8381d20 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -62,6 +62,8 @@ typedef struct CPUUniCore64State {
+         uint64_t c3_faultstatus; /* Fault status registers.  */
+         uint64_t c4_faultaddr; /* Fault address registers.  */
+         uint64_t c4_itrapaddr; /* Exception address register.*/
++        uint64_t c6_dcache; /* Dcache management register */
++        uint64_t c7_icache; /* Icache management register */
+         uint64_t c9_excpbase; /* Exception base register. */
+     } cp0;
+ 
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index e765904..85a452a 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -233,6 +233,54 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+     return 0;
+ }
+ 
++void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
++        uint64_t cop)
++{
++#ifdef CONFIG_USER_ONLY
++    cpu_abort(env, "NO priviledged instructions in user mode\n");
++#endif
++    /*
++     * movc pp.nn, rs, #imm9
++     *      rs: UCOP_REG_D
++     *      nn: UCOP_REG_S1
++     *          1: sys control reg
++     *          6: dcache management reg
++     *          7: icache management reg
++     */
++    switch (creg) {
++    case 1:
++        if (cop != 0) {
++            goto unrecognized;
++        }
++        env->cp0.c1_sys = val;
++        break;
++    case 6:
++        switch (cop) {
++        case 8:
++            env->cp0.c6_dcache = val;
++            break;
++        default:
++            goto unrecognized;
++        }
++        break;
++    case 7:
++        switch (cop) {
++        case 0:
++            env->cp0.c7_icache = val;
++            break;
++        default:
++            goto unrecognized;
++        }
++        break;
++    default:
++        goto unrecognized;
++    }
++    return;
++unrecognized:
++    DPRINTF("Wrong register (%" PRIx64 ") or wrong operation (%" PRIx64
++            ") in %s!\n", creg, cop, __func__);
++}
++
+ #ifdef CONFIG_USER_ONLY
+ void switch_mode(CPUUniCore64State *env, int mode)
+ {
+diff --git a/target-unicore64/helper.h b/target-unicore64/helper.h
+index 49e7842..5428389 100644
+--- a/target-unicore64/helper.h
++++ b/target-unicore64/helper.h
+@@ -11,6 +11,7 @@
+ DEF_HELPER_1(cp1_putc, void, i64)
+ DEF_HELPER_1(cp1_putx, void, i64)
+ DEF_HELPER_3(cp0_get, i64, env, i64, i64)
++DEF_HELPER_4(cp0_set, void, env, i64, i64, i64)
+ 
+ DEF_HELPER_1(exception, void, i32)
+ DEF_HELPER_0(afr_read, i64)
+diff --git a/target-unicore64/translate.c b/target-unicore64/translate.c
+index 405536a..03bcac2 100644
+--- a/target-unicore64/translate.c
++++ b/target-unicore64/translate.c
+@@ -1196,7 +1196,9 @@ static void do_coproc(CPUUniCore64State *env, DisasContext *s, uint32_t insn)
+                 gen_helper_cp0_get(t_creg_64, cpu_env, t_creg_64, t_cop_64);
+                 tcg_gen_mov_i64(cpu_R[UCOP_REG_D], t_creg_64);
+             } else { /* store */
+-                ILLEGAL_INSN(true);
++                tcg_gen_movi_i64(t_creg_64, UCOP_REG_D);
++                gen_helper_cp0_set(cpu_env, cpu_R[UCOP_REG_S1],
++                                   t_creg_64, t_cop_64);
+             }
+             tcg_temp_free(t_creg_64);
+             tcg_temp_free(t_cop_64);
+-- 
+1.7.9.5
+

@@ -1,0 +1,40 @@
+From 3268ba5bacf944c2a26650dcab5afc647c051aa5 Mon Sep 17 00:00:00 2001
+From: Mengchi Zhang <zhangmengchi@mprc.pku.edu.cn>
+Date: Wed, 29 Aug 2012 17:08:19 +0800
+Subject: [PATCH 176/247] unicore64: Adjust qemu output info
+
+Signed-off-by: Zhang Mengchi <zhangmengchi@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c  |    2 +-
+ target-unicore64/softmmu.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 7986e77..2e5d61c 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -11,7 +11,7 @@
+ #define DEBUG_UC64
+ 
+ #ifdef DEBUG_UC64
+-#define DPRINTF(fmt, ...) printf("%s: " fmt , __func__, ## __VA_ARGS__)
++#define DPRINTF(fmt, ...) printf("\t\t(qemu)%s: " fmt , __func__, ## __VA_ARGS__)
+ #else
+ #define DPRINTF(fmt, ...) do {} while (0)
+ #endif
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 6bc23fe..5497065 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -19,7 +19,7 @@
+ #define DEBUG_UC64
+ 
+ #ifdef DEBUG_UC64
+-#define DPRINTF(fmt, ...) printf("\t\t%s: " fmt , __func__, ## __VA_ARGS__)
++#define DPRINTF(fmt, ...) printf("\t\t(qemu)%s: " fmt , __func__, ## __VA_ARGS__)
+ #else
+ #define DPRINTF(fmt, ...) do {} while (0)
+ #endif
+-- 
+1.7.9.5
+

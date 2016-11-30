@@ -1,0 +1,57 @@
+From e4f93147eb812bd3118e724678f54d714b10fb7f Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 15 Jan 2013 16:38:35 +0800
+Subject: [PATCH 222/247] unicore64: Combine io mem handling into
+ get_phys_addr and remove uc64_cpu_handle_mmu_fault
+ trace
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |   18 ++----------------
+ trace-events               |    1 -
+ 2 files changed, 2 insertions(+), 17 deletions(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 78fd506..af3dfa4 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -263,22 +263,8 @@ int uc64_cpu_handle_mmu_fault(CPUUniCore64State *env, target_ulong address,
+         page_size = TARGET_PAGE_SIZE;
+         ret = 0;
+     } else {
+-        if ((address & 0xffffffff00000000ULL) == 0xf00000000ULL) {
+-            /* IO memory */
+-            phys_addr = address;
+-            prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+-            page_size = TARGET_PAGE_SIZE;
+-            ret = 0;
+-        } else {
+-            ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
+-                            &prot, &page_size);
+-        }
+-        /* Following printf is only used for debug */
+-        if ((address & 0xfffffff000000000ULL) != 0xfffffff000000000ULL) {
+-        if ((address & 0xffffffff00000000ULL) != 0xf00000000ULL) {
+-            trace_uc64_cpu_handle_mmu_fault(address, phys_addr, env->regs[31]);
+-        }
+-        }
++        ret = get_phys_addr(env, address, access_type, is_user, &phys_addr,
++                        &prot, &page_size);
+     }
+ 
+     if (ret == 0) {
+diff --git a/trace-events b/trace-events
+index a30c557..320d587 100644
+--- a/trace-events
++++ b/trace-events
+@@ -889,7 +889,6 @@ win_helper_retry(uint32_t tl) "tl=%d"
+ 
+ # target-unicore64/softmmu.c
+ uc64_do_interrupt(const char *str, uint64_t pc) ": %s from mode %2" PRIx64
+-uc64_cpu_handle_mmu_fault(uint64_t va, uint64_t pa, uint64_t pc) ": va %16." PRIx64 " pa %16." PRIx64 " pc %16." PRIx64
+ uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRIx64 " retaddr %16." PRIx64
+ uc64_get_phys_addr(uint64_t address, uint64_t desc, int code, int is_user) ": va %16." PRIx64 " desc %16." PRIx64 " code %d is_user %d"
+ # target-unicore64/helper.c
+-- 
+1.7.9.5
+

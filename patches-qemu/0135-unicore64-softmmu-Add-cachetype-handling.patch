@@ -1,0 +1,74 @@
+From a80d2c340dd98ed8246f884fdbf188ec2bcf8e78 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 19:30:53 +0800
+Subject: [PATCH 135/247] unicore64-softmmu: Add cachetype handling
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/cpu.c    |    1 +
+ target-unicore64/cpu.h    |    1 +
+ target-unicore64/helper.c |   10 +++++++---
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/target-unicore64/cpu.c b/target-unicore64/cpu.c
+index d376ddb..7a41595 100644
+--- a/target-unicore64/cpu.c
++++ b/target-unicore64/cpu.c
+@@ -20,6 +20,7 @@ static void uc64_unicore3_cpu_initfn(Object *obj)
+     CPUUniCore64State *env = &cpu->env;
+ 
+     env->cp0.c0_cpuid = 0x4d110863;
++    env->cp0.c0_cachetype = 0x0519a19a;
+     env->uncached_asr = ASR_MODE_PRIV;
+     env->regs[31] = 0x03000000;
+ }
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index bcf78db..f01ae05 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -57,6 +57,7 @@ typedef struct CPUUniCore64State {
+     /* System control coprocessor (cp0) */
+     struct {
+         uint64_t c0_cpuid;
++        uint64_t c0_cachetype;
+         uint64_t c1_sys; /* System control register.  */
+         uint64_t c2_base; /* MMU translation table base.  */
+         uint64_t c3_ifaultstatus; /* Instruction fault status register.  */
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 52f481b..78ad3e0 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -224,7 +224,9 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+ #ifdef CONFIG_USER_ONLY
+     cpu_abort(env, "NO priviledged instructions in user mode\n");
+ #endif
+-    DPRINTF("%s: creg %" PRIx64 " cop%" PRIx64 "\n", __func__, creg, cop);
++    if (creg != 12) {
++        DPRINTF("%s: creg %" PRIx64 " cop%" PRIx64 "\n", __func__, creg, cop);
++    }
+     /*
+      * movc rd, pp.nn, #imm9
+      *      rd: UCOP_REG_D
+@@ -237,7 +239,7 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+         case 0:
+             return env->cp0.c0_cpuid;
+         case 1:
+-            return env->cp0.c1_sys;
++            return env->cp0.c0_cachetype;
+         }
+         break;
+     case 1:
+@@ -307,7 +309,9 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+ #ifdef CONFIG_USER_ONLY
+     cpu_abort(env, "NO priviledged instructions in user mode\n");
+ #endif
+-    DPRINTF("%s: creg %" PRIx64 " cop%" PRIx64 "\n", __func__, creg, cop);
++    if (creg != 12) {
++        DPRINTF("%s: creg %" PRIx64 " cop%" PRIx64 "\n", __func__, creg, cop);
++    }
+     /*
+      * movc pp.nn, rs, #imm9
+      *      rs: UCOP_REG_D
+-- 
+1.7.9.5
+

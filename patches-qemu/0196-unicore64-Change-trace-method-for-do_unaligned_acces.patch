@@ -1,0 +1,45 @@
+From 3a61f16d1baab0703f52c95ea63bb7c37c043288 Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Tue, 25 Dec 2012 16:59:43 +0800
+Subject: [PATCH 196/247] unicore64: Change trace method for
+ do_unaligned_access
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/softmmu.c |    4 +++-
+ trace-events               |    1 +
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/target-unicore64/softmmu.c b/target-unicore64/softmmu.c
+index 9196543..c9a9fa5 100644
+--- a/target-unicore64/softmmu.c
++++ b/target-unicore64/softmmu.c
+@@ -41,10 +41,12 @@ static void do_unaligned_access(target_ulong addr, int is_write,
+ {
+     TranslationBlock *tb;
+ 
++    trace_uc64_do_unaligned_access(addr, retaddr);
++
+     env->cp0.c3_dfaultstatus = 0x09;
+     env->cp0.c4_dtrapaddr = addr;
+     env->exception_index = UC64_EXCP_DTRAP;
+-    DPRINTF("va %" PRIx64 " retaddr %" PRIx64 "\n", addr, retaddr);
++
+     if (retaddr) {
+         tb = tb_find_pc(retaddr);
+         if (tb) {
+diff --git a/trace-events b/trace-events
+index 40a1627..9d0d92e 100644
+--- a/trace-events
++++ b/trace-events
+@@ -889,6 +889,7 @@ win_helper_retry(uint32_t tl) "tl=%d"
+ 
+ # target-unicore64/softmmu.c
+ uc64_cpu_handle_mmu_fault(uint64_t va, uint64_t pa, uint64_t pc) ": va %16." PRIx64 " pa %16." PRIx64 " pc %16." PRIx64
++uc64_do_unaligned_access(uint64_t addr, uint64_t retaddr)        ": va %16." PRIx64 " retaddr %16." PRIx64
+ 
+ # dma-helpers.c
+ dma_bdrv_io(void *dbs, void *bs, int64_t sector_num, bool to_dev) "dbs=%p bs=%p sector_num=%" PRId64 " to_dev=%d"
+-- 
+1.7.9.5
+

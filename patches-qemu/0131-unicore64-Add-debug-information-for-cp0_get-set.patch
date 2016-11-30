@@ -1,0 +1,33 @@
+From 779b52cfc59a320fa401b1f0cc98007bd71c35ad Mon Sep 17 00:00:00 2001
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Date: Wed, 15 Aug 2012 18:28:49 +0800
+Subject: [PATCH 131/247] unicore64: Add debug information for cp0_get/set
+
+Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+---
+ target-unicore64/helper.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 5ec0fbf..b0fb67a 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -224,6 +224,7 @@ uint64_t helper_cp0_get(CPUUniCore64State *env, uint64_t creg,
+ #ifdef CONFIG_USER_ONLY
+     cpu_abort(env, "NO priviledged instructions in user mode\n");
+ #endif
++    DPRINTF("%s: creg %" PRIx64 " cop%" PRIx64 "\n", __func__, creg, cop);
+     /*
+      * movc rd, pp.nn, #imm9
+      *      rd: UCOP_REG_D
+@@ -306,6 +307,7 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+ #ifdef CONFIG_USER_ONLY
+     cpu_abort(env, "NO priviledged instructions in user mode\n");
+ #endif
++    DPRINTF("%s: creg %" PRIx64 " cop%" PRIx64 "\n", __func__, creg, cop);
+     /*
+      * movc pp.nn, rs, #imm9
+      *      rs: UCOP_REG_D
+-- 
+1.7.9.5
+

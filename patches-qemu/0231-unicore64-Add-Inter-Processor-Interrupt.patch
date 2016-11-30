@@ -1,0 +1,192 @@
+From 05f12955b848e0b1a298cecb8875ddb3447b6899 Mon Sep 17 00:00:00 2001
+From: Li Binbin <libinbin@mprc.pku.edu.cn>
+Date: Tue, 18 Feb 2014 17:12:19 +0800
+Subject: [PATCH 231/247] unicore64: Add Inter Processor Interrupt
+
+Signed-off-by: Li Binbin <libinbin@mprc.pku.edu.cn>
+---
+ hw/puv4.c                 |    3 ++-
+ hw/puv4.h                 |    3 ++-
+ hw/unicore64/cp0_intc.c   |   42 ++++++++++++++++++++++++++++++------------
+ target-unicore64/cpu.h    |    4 ++++
+ target-unicore64/helper.c |   11 ++++++++++-
+ 5 files changed, 48 insertions(+), 15 deletions(-)
+
+diff --git a/hw/puv4.c b/hw/puv4.c
+index 47aa55d..cd05c0b 100644
+--- a/hw/puv4.c
++++ b/hw/puv4.c
+@@ -6,6 +6,7 @@
+ #include "loader.h"
+ #include "pc.h"
+ #include "sysemu.h"
++#include "cpu.h"
+ 
+ #undef DEBUG_PUV4
+ #include "puv4.h"
+@@ -22,7 +23,7 @@ static void puv4_soc_init(CPUUniCore64State *env)
+ 
+     sysbus_create_varargs("uc64_io_ctl", UC64_IO_CTL_BASE);
+     dev = sysbus_create_simple("uc64_soc_intc", PUV4_INTC_BASE,
+-            uc64_cpu_intc[UC64_INTR_DEV]);
++            uc64_cpu0_intc[UC64_INTR_DEV]);
+     for (i = 0; i < PUV4_IRQS_NR; i++) {
+         intc_irqs[i] = qdev_get_gpio_in(dev, i);
+     }
+diff --git a/hw/puv4.h b/hw/puv4.h
+index 2ed306c..32f039d 100644
+--- a/hw/puv4.h
++++ b/hw/puv4.h
+@@ -15,5 +15,6 @@
+ #define PUV4_PS2_BASE           (0xef100000)
+ #define UC64_IO_CTL_BASE        (0xff6100000ULL) /* FAKE */
+ 
+-extern qemu_irq *uc64_cpu_intc;
++extern qemu_irq *uc64_cpu0_intc;
++extern qemu_irq *uc64_cpu1_intc;
+ #endif /* !QEMU_HW_PUV4_H */
+diff --git a/hw/unicore64/cp0_intc.c b/hw/unicore64/cp0_intc.c
+index 532891e..bbeed24 100644
+--- a/hw/unicore64/cp0_intc.c
++++ b/hw/unicore64/cp0_intc.c
+@@ -14,25 +14,30 @@
+ 
+ #define UC64_CP0_INTRTYPE_ITM   (1 << 7)
+ #define UC64_CP0_INTRTYPE_DEV   (1 << 9)
++#define UC64_CP0_INTRTYPE_IPI   (0x600) /* Inner Processor Interrupt */
+ 
+-qemu_irq *uc64_cpu_intc;
++qemu_irq *uc64_cpu0_intc;
++qemu_irq *uc64_cpu1_intc;
+ 
+-void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int irq)
++void uc64_cp0_intc_irq_lower(CPUUniCore64State *env, int val)
+ {
+-    if (irq == 2) {
+-        if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
+-            env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
+-            qemu_irq_lower(uc64_cpu_intc[irq]);
+-        }
++    if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_ITM) {
++        env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_ITM;
++        qemu_irq_lower(uc64_cpu0_intc[2]);
++    }
++    if (env->cp0.c10_intrtype & UC64_CP0_INTRTYPE_IPI) {
++        env->cp0.c10_intrtype &= ~UC64_CP0_INTRTYPE_IPI;
++        qemu_irq_lower(uc64_cpu1_intc[0]);
+     }
+ }
+ 
+ void uc64_cp0_intc_irq_raise(CPUUniCore64State *env, int irq)
+ {
+-    if (irq == 2)
+-        env->cp0.c10_intrtype |= UC64_CP0_INTRTYPE_ITM;
+-
+-    qemu_irq_raise(uc64_cpu_intc[irq]);
++    if ((irq == UC64_INTR_SMP) && (env->cpu_index == 1)) {
++        qemu_irq_raise(uc64_cpu1_intc[irq]);
++    } else {
++        qemu_irq_raise(uc64_cpu0_intc[irq]);
++    }
+ }
+ 
+ /* Process a change in an external INTC input. */
+@@ -41,11 +46,16 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+     CPUUniCore64State *env = (CPUUniCore64State *)opaque;
+ 
+     trace_uc64_intc_cpu_handler(irq, level);
++    uint64_t mask = 0;
+ 
+     if (irq == UC64_INTR_ITM) { /* ITIMER */
+         irq = UC64_CP0_INTRTYPE_ITM;
+     } else if (irq == UC64_INTR_DEV) {
+         irq = UC64_CP0_INTRTYPE_DEV;
++    } else if (irq == UC64_INTR_SMP) {
++        mask = 1<<(env->cpu_index + 9);
++        env->cp0.c10_intrtype |= mask;
++        irq = UC64_CP0_INTRTYPE_IPI;
+     } else {
+         abort();
+     }
+@@ -56,6 +66,8 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+             cpu_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
+         } else if (irq == UC64_CP0_INTRTYPE_DEV) {
+             cpu_interrupt(env, CPU_INTERRUPT_HARD);
++        } else if (irq == UC64_CP0_INTRTYPE_IPI) {
++            cpu_interrupt(env, CPU_INTERRUPT_SMP);
+         }
+     } else {
+         env->cp0.c10_intrtype &= ~irq;
+@@ -63,11 +75,17 @@ static void uc64_intc_cpu_handler(void *opaque, int irq, int level)
+             cpu_reset_interrupt(env, CPU_INTERRUPT_TGT_INT_0);
+         } else if (irq == UC64_CP0_INTRTYPE_DEV) {
+             cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
++        } else if (irq == UC64_CP0_INTRTYPE_IPI) {
++            cpu_reset_interrupt(env, CPU_INTERRUPT_SMP);
+         }
+     }
+ }
+ 
+ void  uc64_cp0_intc_init(CPUUniCore64State *env)
+ {
+-    uc64_cpu_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 6);
++    if (env->cpu_index == 0) {
++        uc64_cpu0_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 6);
++    } else {
++        uc64_cpu1_intc = qemu_allocate_irqs(uc64_intc_cpu_handler, env, 6);
++    }
+ }
+diff --git a/target-unicore64/cpu.h b/target-unicore64/cpu.h
+index 0f1fca9..6eec413 100644
+--- a/target-unicore64/cpu.h
++++ b/target-unicore64/cpu.h
+@@ -105,6 +105,7 @@ typedef struct CPUUniCore64State {
+ #define UC64_EXCP_PRIV          0x08
+ #define UC64_EXCP_ITRAP         0x0c
+ #define UC64_EXCP_DTRAP         0x10
++#define UC64_INTR_IPI           0x18
+ #define UC64_INTR_ITIMER        0x20
+ #define UC64_INTR_PUV4          0x24
+ 
+@@ -124,6 +125,9 @@ void cpu_afr_write(CPUUniCore64State *env, target_ulong val, target_ulong msk);
+ #define cpu_signal_handler              uc64_cpu_signal_handler
+ #define cpu_handle_mmu_fault            uc64_cpu_handle_mmu_fault
+ 
++/* UniCore64-specific interrupt pending bits. */
++#define CPU_INTERRUPT_SMP    0x600
++
+ CPUUniCore64State *uc64_cpu_init(const char *cpu_model);
+ int uc64_cpu_exec(CPUUniCore64State *s);
+ int uc64_cpu_signal_handler(int host_signum, void *pinfo, void *puc);
+diff --git a/target-unicore64/helper.c b/target-unicore64/helper.c
+index 5ba0548..42035ad 100644
+--- a/target-unicore64/helper.c
++++ b/target-unicore64/helper.c
+@@ -369,6 +369,7 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+ #ifdef CONFIG_USER_ONLY
+     cpu_abort(env, "NO priviledged instructions in user mode\n");
+ #endif
++    CPUUniCore64State *ipi_env = NULL;
+     switch (creg) {
+     case 1:
+         if (cop != 0) {
+@@ -443,7 +444,15 @@ void helper_cp0_set(CPUUniCore64State *env, uint64_t val, uint64_t creg,
+     case 10:
+         switch (cop) {
+         case 0: /* Interrupt type */
+-            uc64_cp0_intc_irq_lower(env, 2);
++            uc64_cp0_intc_irq_lower(env, val);
++            break;
++        case 3:
++            ipi_env = qemu_get_cpu(0);
++            uc64_cp0_intc_irq_raise(ipi_env, UC64_INTR_SMP);
++            break;
++        case 4:
++            ipi_env = qemu_get_cpu(1);
++            uc64_cp0_intc_irq_raise(ipi_env, UC64_INTR_SMP);
+             break;
+         case 10: /* Match Register */
+             env->cp0.c10_itimermr = val;
+-- 
+1.7.9.5
+
