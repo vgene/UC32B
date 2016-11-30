@@ -1,3 +1,16 @@
+# 工程架构
+
+## 环境列表
+	本地：		MacOS 					~/UniCore32			备份 & 服务器与Github中转用
+				VB	Ubuntu16.04 X86_64	~/UniCore32			与服务器端一致的本地运行环境
+	服务器端：	Ubuntu16.04 X86_64		~/unicore32			服务器端标准运行环境
+										~/UniCore32.git		裸库
+	GitHub端：	https://github.com/vgene/UC32B/settings		GitHub备份
+
+## Git关系
+	Server	<-> Server Bare Repository	<->	MBP	<->	Github
+										<->	VB
+
 # 工作流程
 
 ## 准备Linux内核
