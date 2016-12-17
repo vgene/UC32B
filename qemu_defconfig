@@ -1,0 +1,26 @@
+### General setup
+CONFIG_LOCALVERSION="-qemu"
+#	Initial RAM filesystem and RAM disk (initramfs/initrd) support
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_INITRAMFS_SOURCE="/pub/initramfs/initramfs_config"
+
+### System Type
+CONFIG_ARCH_PUV3=y
+#	Board Selection
+CONFIG_PUV3_NB0916=y
+#	Processor Features
+CONFIG_CPU_DCACHE_LINE_DISABLE=y
+CONFIG_CPU_TLB_SINGLE_ENTRY_DISABLE=y
+
+### Boot options
+CONFIG_CMDLINE="mem=512M earlyprintk=ocd ignore_loglevel root=/dev/ram0 rw"
+CONFIG_CMDLINE_FORCE=y
+
+### Device Drivers
+#	Console display driver support
+CONFIG_VGA_CONSOLE=n
+
+### Kernel hacking
+CONFIG_DEBUG_KERNEL=y
+CONFIG_DEBUG_LL=y
+CONFIG_DEBUG_OCD=y

@@ -1,4 +1,4 @@
-DIR_UNICORE32	:= /home/UC32B/LL1400012978/unicore32
+DIR_UNICORE32	:= /home/zyxu/UniCore32
 DIR_WORKING	:= $(DIR_UNICORE32)/working
 DIR_GNU_UC	:= /pub/toolchain/uc32/unicore32-linux/
 

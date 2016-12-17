@@ -3,10 +3,9 @@ LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
 LINUX_REPO_LINUS	:= git@github.com:torvalds/linux.git
 LINUX_ARCH		:= unicore32
 LINUX_BUILDLOG		:= $(DIR_WORKING)/linux-build.log
-# v3.7-rc4
-LINUX_PATCHES_BASE	:= 29594404d7fe73cd80eaa4ee8c43dcc53970c60e 
-LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux-unhandled
-LINUX_PATCHES_DIR_OLD   := $(DIR_UNICORE32)/patches-linux
+# v4.8-rc8
+LINUX_PATCHES_BASE	:= afd2ff9b7e1b367172f18ba7f693dfb62bdcb2dc 
+LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux
 LINUX_DEFCONFIG		:= qemu_defconfig
 
 linux-new:
@@ -20,8 +19,7 @@ linux-new:
 	@cd $(DIR_WORKING)/linux;				\
 		git branch unicore32 $(LINUX_PATCHES_BASE);	\
 		git checkout unicore32;				\
-		#git am $(LINUX_PATCHES_DIR_OLD)/*		\
-		 git am $(LINUX_PATCHES_DIR)/*
+		git am $(LINUX_PATCHES_DIR)/*
 
 linux-make:
 	@echo "Make mrproper ..."
