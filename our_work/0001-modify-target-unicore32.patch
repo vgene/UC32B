@@ -1,0 +1,54 @@
+From d15437fe4909f153a5e35ad03f5983a0a494b971 Mon Sep 17 00:00:00 2001
+From: Xu Ziyang <xuziyang@pku.edu.cn>
+Date: Sat, 17 Dec 2016 16:05:14 +0800
+Subject: [PATCH] modify target-unicore32
+
+---
+ cpu-exec.c                 | 9 +++++++--
+ target-unicore32/softmmu.c | 3 +++
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 5d9710a..f1e2375 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -422,15 +422,20 @@ static inline bool cpu_handle_exception(CPUState *cpu, int *ret)
+             cpu->exception_index = -1;
+             return true;
+ #else
++
+             if (replay_exception()) {
+                 CPUClass *cc = CPU_GET_CLASS(cpu);
+-                cc->do_interrupt(cpu);
++                if (cpu->exception_index != 0)
++                    cc->do_interrupt(cpu);
++                else
++                    printf("Exception Index: 0, but why?\n");
+                 cpu->exception_index = -1;
+             } else if (!replay_has_interrupt()) {
+                 /* give a chance to iothread in replay mode */
+                 *ret = EXCP_INTERRUPT;
+                 return true;
+-            }
++           }
++      
+ #endif
+         }
+ #ifndef CONFIG_USER_ONLY
+diff --git a/target-unicore32/softmmu.c b/target-unicore32/softmmu.c
+index e7152e7..380bb09 100644
+--- a/target-unicore32/softmmu.c
++++ b/target-unicore32/softmmu.c
+@@ -84,6 +84,9 @@ void uc32_cpu_do_interrupt(CPUState *cs)
+     int new_mode;
+ 
+     switch (cs->exception_index) {
++    case 0:
++        printf("wtf??\n");
++        break;
+     case UC32_EXCP_PRIV:
+         new_mode = ASR_MODE_PRIV;
+         addr = 0x08;
+-- 
+2.7.4
+
