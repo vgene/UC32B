@@ -1,3 +1,15 @@
+# 最新修改
+
+## QEMU
+
+版本选择：
+
+tag v2.7.0-rc0
+
+branch id: 2d2e632ad00d11867c6c5625605b1fbc022dd62f 
+
+patch: QEMU-2d2e632-0001-modify-target-unicore32.patch
+
 # 工程架构
 
 ## 环境列表
