@@ -1,4 +1,4 @@
-DIR_UNICORE32	:= /home/UC32B/LL1400012978/unicore32
+DIR_UNICORE32	:= $(wildcard ~/UC32B)
 DIR_WORKING	:= $(DIR_UNICORE32)/working
 DIR_GNU_UC	:= /pub/toolchain/uc32/unicore32-linux/
 
@@ -16,7 +16,10 @@ QEMU_REPO31	:= $(USER)@192.168.200.31:/pub/git/qemu.git
 QEMU_BUILDLOG	:= $(DIR_WORKING)/qemu-build.log
 QEMU_TARGETS	:= unicore32-linux-user,unicore32-softmmu
 QEMU_TRACELOG	:= $(DIR_WORKING)/trace.log
-QEMU_PATCHES    := $(DIR_UNICORE32)/patches-qemu
+QEMU_BASE	:= 2d2e632ad00d11867c6c5625605b1fbc022dd62f
+QEMU_BASE_OLD	:= 0b8db8f
+QEMU_PATCHES	:= $(DIR_UNICORE32)/patches-qemu
+QEMU_PATCHES_NEW	:= $(DIR_UNICORE32)/patches-qemu-upgraded
 PATH		:= $(CROSS_UNICORE32)/bin:$(PATH)
 
 all:
@@ -41,6 +44,7 @@ include Makefile.linux
 
 highfive:
 	@make clean
+	@make helloworld
 	@make busybox
 	@make linux-new
 	@make linux-make
@@ -49,6 +53,10 @@ highfive:
 
 clean:
 	@rm -fr $(DIR_WORKING)
+
+helloworld:
+	@$(CROSS_COMPILE)gcc -o ./etc/helloworld ./tests/helloworld.c
+	@$(CROSS_COMPILE)gcc -o ./etc/helloworld_static ./tests/helloworld.c -static
 
 busybox:
 	@echo "Remove old busybox ..."
@@ -73,9 +81,9 @@ qemu-new:
 	@rm -fr $(DIR_WORKING)/qemu
 	@cd $(DIR_WORKING); git clone $(QEMU_GITREPO)
 	@cd $(DIR_WORKING)/qemu;				\
-		git branch unicore32 0b8db8f;				\
-		git checkout unicore32;	\
-        git am $(QEMU_PATCHES)/*
+		git branch unicore32 $(QEMU_BASE);		\
+		git checkout unicore32;				\
+       		git am $(QEMU_PATCHES_NEW)/*
 
 qemu-make:
 	@echo "Configure qemu ..."
@@ -105,6 +113,6 @@ qemu-run:
 		-kernel $(DIR_WORKING)/zImage
 		# -net nic					\
 		# -net tap,ifname=tap_$(USER),script=no,downscript=no	\
-		# -append "root=/dev/nfs nfsroot=192.168.200.161:/export/guestroot/,tcp rw ip=192.168.122.4"    \
-		2> $(QEMU_TRACELOG)
+		# -append "root=/dev/nfs nfsroot=192.168.200.161:/export/guestroot/,tcp rw ip=192.168.122.4"
+		>> $(QEMU_TRACELOG) 2>&1
 

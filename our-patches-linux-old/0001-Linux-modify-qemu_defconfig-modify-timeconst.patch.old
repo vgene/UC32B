@@ -17,7 +17,7 @@ index 9be7a85..0d33e4f 100644
  #	Initial RAM filesystem and RAM disk (initramfs/initrd) support
  CONFIG_BLK_DEV_INITRD=y
 -CONFIG_INITRAMFS_SOURCE="/pub/initramfs/initramfs_config"
-+CONFIG_INITRAMFS_SOURCE="~/unicore32/initramfs/initramfs_config.busybox"
++CONFIG_INITRAMFS_SOURCE="~/UC32B/initramfs/initramfs_config.busybox"
  
  ### System Type
  CONFIG_ARCH_PUV3=y

@@ -3,10 +3,12 @@ LINUX_REPO_GITHUB	:= git@github.com:gxt/linux.git
 LINUX_REPO_LINUS	:= git@github.com:torvalds/linux.git
 LINUX_ARCH		:= unicore32
 LINUX_BUILDLOG		:= $(DIR_WORKING)/linux-build.log
-# v3.7-rc4
-LINUX_PATCHES_BASE	:= 29594404d7fe73cd80eaa4ee8c43dcc53970c60e 
-LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/our-patches-linux
-LINUX_PATCHES_DIR_OLD   := $(DIR_UNICORE32)/patches-linux
+# v4.4-rc8
+LINUX_PATCHES_BASE4.4	:= 168309855a7d1e16db751e9c647119fe2d2dc878
+#v4.8-rc8
+LINUX_PATCHES_BASE	:= 08895a8b6b06ed2323cd97a36ee40a116b3db8ed
+LINUX_PATCHES_NEW	:= $(DIR_UNICORE32)/patches-linux-upgraded
+LINUX_PATCHES_DIR_OLD   := $(DIR_UNICORE32)/patches-linux-unhandled
 LINUX_DEFCONFIG		:= qemu_defconfig
 
 linux-new:
@@ -20,13 +22,12 @@ linux-new:
 	@cd $(DIR_WORKING)/linux;				\
 		git branch unicore32 $(LINUX_PATCHES_BASE);	\
 		git checkout unicore32;				\
-		git am $(LINUX_PATCHES_DIR)/*
+		git am $(LINUX_PATCHES_NEW)/*
 
 linux-make:
 	@echo "Make mrproper ..."
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
 		mrproper >> $(LINUX_BUILDLOG) 2>&1
-	@echo "Make $(LINUX_DEFCONFIG) ..."
 	@make -C $(DIR_WORKING)/linux ARCH=$(LINUX_ARCH)	\
 		$(LINUX_DEFCONFIG) >> $(LINUX_BUILDLOG) 2>&1
 	@echo "Making (in several minutes) ..."

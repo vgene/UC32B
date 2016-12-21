@@ -1,0 +1,26 @@
+From 068d1a45c660c6ca94871b36dffbed9771761681 Mon Sep 17 00:00:00 2001
+From: Xu Ziyang <1400012978@pku.edu.cn>
+Date: Wed, 30 Nov 2016 13:38:28 +0800
+Subject: [PATCH] Linux: modify qemu_defconfig; modify timeconst
+
+---
+ arch/unicore32/configs/qemu_defconfig | 2 +-
+ kernel/timeconst.pl                   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/unicore32/configs/qemu_defconfig b/arch/unicore32/configs/qemu_defconfig
+index 9be7a85..0d33e4f 100644
+--- a/arch/unicore32/configs/qemu_defconfig
++++ b/arch/unicore32/configs/qemu_defconfig
+@@ -2,7 +2,7 @@
+ CONFIG_LOCALVERSION="-qemu"
+ #	Initial RAM filesystem and RAM disk (initramfs/initrd) support
+ CONFIG_BLK_DEV_INITRD=y
+-CONFIG_INITRAMFS_SOURCE="~/unicore32/initramfs/initramfs_config"
++CONFIG_INITRAMFS_SOURCE="~/UC32B/initramfs/initramfs_config.busybox"
+ 
+ ### System Type
+ CONFIG_ARCH_PUV3=y
+--
+2.7.4
+
