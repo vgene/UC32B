@@ -1,4 +1,4 @@
-DIR_UNICORE32	:= $(wildcard ~/UC32B)
+DIR_UNICORE32	:= $(wildcard ~/UniCore32)
 DIR_WORKING	:= $(DIR_UNICORE32)/working
 DIR_GNU_UC	:= /pub/toolchain/uc32/unicore32-linux/
 
