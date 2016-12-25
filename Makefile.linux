@@ -4,8 +4,8 @@ LINUX_REPO_LINUS	:= git@github.com:torvalds/linux.git
 LINUX_ARCH		:= unicore32
 LINUX_BUILDLOG		:= $(DIR_WORKING)/linux-build.log
 # v4.8-rc8
-LINUX_PATCHES_BASE	:= afd2ff9b7e1b367172f18ba7f693dfb62bdcb2dc 
-LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-linux
+LINUX_PATCHES_BASE	:= 08895a8b6b06ed2323cd97a36ee40a116b3db8ed 
+LINUX_PATCHES_DIR	:= $(DIR_UNICORE32)/patches-combined
 LINUX_DEFCONFIG		:= qemu_defconfig
 
 linux-new:

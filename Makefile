@@ -73,9 +73,9 @@ qemu-new:
 	@rm -fr $(DIR_WORKING)/qemu
 	@cd $(DIR_WORKING); git clone $(QEMU_GITREPO)
 	@cd $(DIR_WORKING)/qemu;				\
-		git branch unicore32 0b8db8f;				\
+		git branch unicore32 1dc33ed;				\
 		git checkout unicore32;	\
-        git am $(QEMU_PATCHES)/*
+        # git am $(QEMU_PATCHES)/*
 
 qemu-make:
 	@echo "Configure qemu ..."
