@@ -1,0 +1,25 @@
+From ef1b659769279ba2fc9df42d7328278c19fcc058 Mon Sep 17 00:00:00 2001
+From: Xu Ziyang <xuziyang@pku.edu.cn>
+Date: Sun, 25 Dec 2016 21:27:51 +0800
+Subject: [PATCH] add exception index initialization
+
+---
+ cpu-exec.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/cpu-exec.c b/cpu-exec.c
+index 5d9710a..180ad26 100644
+--- a/cpu-exec.c
++++ b/cpu-exec.c
+@@ -607,6 +607,8 @@ int cpu_exec(CPUState *cpu)
+      */
+     init_delay_params(&sc, cpu);
+ 
++    cpu->exception_index = -1;
++
+     for(;;) {
+         /* prepare setjmp context for exception handling */
+         if (sigsetjmp(cpu->jmp_env, 0) == 0) {
+-- 
+2.7.4
+
